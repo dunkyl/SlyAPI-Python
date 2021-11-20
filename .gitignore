@@ -1,0 +1,4 @@
+desktop.ini
+src/SlyAPI.egg-info/*
+*.pyc
+# src/SlyAPI/__pycache__/webapi.cpython-310.pyc
