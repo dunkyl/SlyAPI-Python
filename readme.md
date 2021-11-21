@@ -67,10 +67,9 @@ class City:
         # ...
 
 class OpenWeather(WebAPI):
-    base_url = 'https://api.openweathermap.org/data/2.5'
-            
+
     def __init__(self, api_key: str):
-        super().__init__(add_params={ 'appid': api_key })
+        super().__init__('https://api.openweathermap.org/data/2.5', {'appid': api_key})
         
     async def city(self, 
         where: str,

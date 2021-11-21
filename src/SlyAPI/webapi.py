@@ -126,17 +126,34 @@ class Paginator:
 from .oauth2 import OAuth2User
 from .oauth1 import OAuth1User
 
-def convert_url_params(p: dict[str, Any]|None) -> dict[str, str]|None:
-    if p is None: return None
+def convert_url_params(p: dict[str, Any]|None) -> dict[str, str]:
+    if p is None: return {}
     return {k: str(v) for k, v in p.items() if v is not None and v != ''}
 
 class WebAPI:
     base_url: str
     session: ClientSession
-    authorization: OAuth2User | OAuth1User | str
+    auth: OAuth2User | OAuth1User | dict[str, str] | None
+    add_params: dict[str, str]
 
-    def __init__(self, base_url: str, headers: dict[str, str], authorization: OAuth2User | OAuth1User | str):
+    def __init__(self,
+        base_url: str,
+        auth: OAuth2User | OAuth1User | dict[str, str]):
+
         self.base_url = base_url
+
+        headers: dict[str, str]|None = None
+        match auth:
+            case OAuth2User():
+                headers = auth.get_headers()
+                self.add_params = {}
+            case OAuth1User():
+                pass # TODO
+                self.add_params = {}
+            case {**params}:
+                self.add_params = params
+
+        self.auth = auth
 
         # the aiohttp context manager does no asynchronous work when entering.
         # Using the context is not necessary as long as ClientSession.close() 
@@ -151,15 +168,13 @@ class WebAPI:
         # is garbage collected.
         self._finalize = weakref.finalize(self, self.session._connector._close) # type: ignore ## reportPrivateUsage
 
-        self.authorization = authorization
-
     def close(self):
         self._finalize() 
 
     def _req(self, method: str, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None):
         return self.session.request(
                 method, f"{self.base_url}{path}",
-                params = convert_url_params(params),
+                params = convert_url_params(params)|self.add_params,
                 data = data, json = json )
 
     async def _req_json(self, method: str, path: str, params: dict[str, Any], json: Any, data: Any) -> Any:
