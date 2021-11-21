@@ -181,7 +181,7 @@ class WebAPI:
                 params = convert_url_params(params)|self.add_params,
                 data = data, json = json )
 
-    async def _req_json(self, method: str, path: str, params: dict[str, Any], json: Any, data: Any) -> Any:
+    async def _req_json(self, method: str, path: str, params: dict[str, Any]|None, json: Any, data: Any) -> Any:
         async with self._req(
                 method, f"{self.base_url}{path}",
                 params, json, data ) as response:
@@ -190,14 +190,14 @@ class WebAPI:
                 raise await api_err(response, result)
             return result
     
-    async def _req_empty(self, method: str, path: str, params: dict[str, Any], json: Any, data: Any) -> None:
+    async def _req_empty(self, method: str, path: str, params: dict[str, Any]|None, json: Any, data: Any) -> None:
         async with self._req(
                 method, f"{self.base_url}{path}",
                 params, data, json ) as response:
             if response.status != 204:
                 raise await api_err(response)
 
-    async def get_json(self, path: str, params: dict[str, Any], json: Any=None, data: Any=None) -> dict[str, Any]:
+    async def get_json(self, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None) -> dict[str, Any]:
         return await self._req_json('GET', F"{self.base_url}{path}", params, json=json, data=data)
 
     async def _paginated(self,
