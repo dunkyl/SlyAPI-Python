@@ -137,10 +137,12 @@ class WebAPI:
     add_params: dict[str, str]
 
     def __init__(self,
-        base_url: str,
-        auth: OAuth2User | OAuth1User | dict[str, str]):
+        base_url: str|None=None,
+        auth: OAuth2User | OAuth1User | dict[str, str] | None = None):
 
-        self.base_url = base_url
+        if base_url: self.base_url = base_url
+        if not self.base_url:
+            raise ValueError("base_url is required")
 
         headers: dict[str, str]|None = None
         match auth:
@@ -152,6 +154,8 @@ class WebAPI:
                 self.add_params = {}
             case {**params}:
                 self.add_params = params
+            case None:
+                self.add_params = {}
 
         self.auth = auth
 
