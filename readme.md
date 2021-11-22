@@ -1,12 +1,14 @@
 # SlyAPI
 
-> **This library is a work in progress!**
+> 🚧 **This library is an early work in progress! Breaking changes may be frequent.**
+
+> 🐍 For Python 3.10+
 
 No-boilerplate, async web api access with oauth1/2.
 
-<!-- ```py
+```py
 pip install slyapi
-``` -->
+```
 
 Meant as a foundation for other libraries more than being used directly. It is used by my more specific libraries:
 
