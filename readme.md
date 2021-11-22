@@ -1,7 +1,5 @@
 # SlyAPI
 
----
-
 > **This library is a work in progress!**
 
 No-boilerplate, async web api access with oauth1/2.
@@ -12,7 +10,7 @@ pip install slyapi
 
 Meant as a foundation for other libraries more than being used directly. It is used by my more specific libraries:
 
-* SlyYTDAPI and SlyYTAAPI: for the YouTube APIs
+* [SlyYTDAPI](https://github.com/dunkyl/SlyPyYTDAPI) and SlyYTAAPI: for the YouTube APIs
 * SlyTwitter
 * SlySheets: for Google Sheets
 
