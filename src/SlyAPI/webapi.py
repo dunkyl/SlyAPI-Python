@@ -21,6 +21,7 @@ from collections.abc import Coroutine
 import hashlib
 
 from aiohttp import ClientSession, ClientResponse
+from aiohttp.client_exceptions import ContentTypeError
 
 def nc_hash(x: str) -> str:
     h = hashlib.new('ripemd160')
@@ -43,7 +44,7 @@ class AsyncLazy(Generic[T]):
     def __init__(self, gen: AsyncGenerator[T, None]):
         self.gen = gen
 
-    async def __aiter__(self) -> AsyncGenerator[T, None]:
+    def __aiter__(self) -> AsyncGenerator[T, None]:
         return self.gen
 
     async def _items(self) -> list[T]:
@@ -67,11 +68,11 @@ class AsyncTrans(AsyncLazy[Any], Generic[U]):
         super().__init__(gen)
         self.mapping = mapping
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return (self.mapping(t) async for t in self.gen)
 
     async def _items(self) -> list[U]:
-        return [self.mapping(t) async for t in self.gen]
+        return [u async for u in self]
 
 class APIError(Exception):
     status: int
@@ -183,22 +184,25 @@ class WebAPI:
 
     async def _req_json(self, method: str, path: str, params: dict[str, Any]|None, json: Any, data: Any) -> Any:
         async with self._req(
-                method, f"{self.base_url}{path}",
+                method, path,
                 params, json, data ) as response:
-            result = await response.json()
+            try:
+                result = await response.json()
+            except ContentTypeError:
+                result = await response.text()
             if response.status != 200:
                 raise await api_err(response, result)
             return result
     
     async def _req_empty(self, method: str, path: str, params: dict[str, Any]|None, json: Any, data: Any) -> None:
         async with self._req(
-                method, f"{self.base_url}{path}",
+                method, path,
                 params, data, json ) as response:
             if response.status != 204:
                 raise await api_err(response)
 
     async def get_json(self, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None) -> dict[str, Any]:
-        return await self._req_json('GET', F"{self.base_url}{path}", params, json=json, data=data)
+        return await self._req_json('GET', path, params, json=json, data=data)
 
     async def _paginated(self,
         method: Callable[[str, dict[str, Any]], Coro[Any]],
@@ -215,12 +219,12 @@ class WebAPI:
 
             if not items: break
 
-            result_count += len(items)
+            # result_count += len(items)
             for item in items:
-                if limit is not None and result_count >= limit:
-                    break
                 result_count += 1
                 yield item
+                if limit is not None and result_count >= limit:
+                    return
             
             page_token = cast(str, page.get('nextPageToken'))
             if not page_token: break

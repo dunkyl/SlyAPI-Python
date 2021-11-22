@@ -26,13 +26,13 @@ Example direct usage:
 import asyncio
 from SlyAPI import WebAPI
 
-# don't forget to keep your secrets secret!
-open_weather = WebAPI(
-    base_url='https://api.openweathermap.org/data/2.5',
-    add_params={ 'appid': open('api_key.txt').read() }
-)
-
 async def main():
+    # don't forget to keep your secrets secret!
+    open_weather = WebAPI(
+        base_url='https://api.openweathermap.org/data/2.5',
+        add_params={ 'appid': open('api_key.txt').read() }
+    )
+
     status = await open_weather.get_json(
         '/weather', {
             'q': 'Seattle,WA,US',
@@ -90,7 +90,3 @@ class OpenWeather(WebAPI):
 
     # ...
 ```
-
-## FAQ
-
-* 
