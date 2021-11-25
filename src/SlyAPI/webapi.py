@@ -107,10 +107,10 @@ class EnumParam(Enum):
     def get_title(self) -> str:
         return self.__class__.__name__[0].lower()+self.__class__.__name__[1:]
 
-    def __add__(self: T, other: 'Self|_EnumParams') -> T:
+    def __add__(self: T, other: 'EnumParam|_EnumParams') -> T:
         '''Collect with another parameter or set of parameters.'''
         # return type is compatible with EnumParam for + and to_dict
-        return cast(EnumParam, _EnumParams() + self + other)
+        return _EnumParams() + self + other # type: ignore
     
     def to_dict(self, delimiter: str=',') -> dict[str, str]:
         '''
