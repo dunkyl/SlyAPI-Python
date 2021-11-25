@@ -86,33 +86,58 @@ class APIError(Exception):
     def __str__(self) -> str:
         return super().__str__() + F"\nStatus: {self.status}\nReason: {self.reason}"
 
-class EnumParam(Enum):
-    _params: list['EnumParam']
-    
-    def __str__(self) -> str:
-        return self.value
+class EnumParams:
+    params: list['EnumParam']
 
-    def _get_title(self) -> str:
-        return self.__class__.__name__.lower()
+    def __init__(self, *params: 'EnumParam'):
+        self.params = [param for param in params]
+        # for param in params:
+        #     match param:
+        #         case EnumParam():
+        #             self.params.append(param)
+        #         case EnumParams():
+        #             self.params.extend(param.params)
 
-    def __add__(self, other: 'EnumParam'):
-        if not hasattr(self, '_params'):
-            setattr(self, '_params', [self])
-        self._params.append(other)
-        return self
+    def __add__(self, other: 'EnumParam|EnumParams') -> 'EnumParams':
+        '''Collect with another parameter or set of parameters.'''
+        match other:
+            case EnumParam():
+                return EnumParams(*self.params, other)
+            case EnumParams():
+                return EnumParams(*self.params, *other.params)
 
     def to_dict(self, delimiter: str=',') -> dict[str, str]:
-        # TODO: If the value of a param is None, it should be omitted.
-        if not hasattr(self, '_params'):
-            setattr(self, '_params', [self])
+        '''
+            Convert packed parameters to a dictionary for use in a URL.
+        '''
         params: dict[str, str] = {}
-        for param in self._params:
-            title = param._get_title()
-            if not title in params:
-                params[title] = param.value
-            else:
-                params[title] += delimiter+param.value
+        for param in self.params:
+            if param.value is not None:
+                title = param.get_title()
+                if not title in params:
+                    params[title] = param.value
+                else:
+                    params[title] += delimiter+param.value
         return params
+
+class EnumParam(EnumParams, Enum):
+    _params: list['EnumParam']
+    
+    def get_title(self) -> str:
+        return self.__class__.__name__.lower()
+
+    def __add__(self, other: 'EnumParam|EnumParams') -> EnumParams:
+        '''Collect with another parameter or set of parameters.'''
+        match other:
+            case EnumParam():
+                return EnumParams(self, other)
+            case EnumParams():
+                return EnumParams(self, *other.params)
+    
+    def to_dict(self, delimiter: str=',') -> dict[str, str]:
+        if self.value is None:
+            return {}
+        return {self.get_title(): self.value}
 
 async def api_err(response: ClientResponse, result: Json = None) -> APIError:
     match result:
@@ -214,6 +239,7 @@ class WebAPI:
 
         while True:
             page = await method(path, params)
+            print(page)
 
             items = page.get('items')
 
