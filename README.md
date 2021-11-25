@@ -4,7 +4,7 @@
 
 > 🐍 For Python 3.10+
 
-No-boilerplate, async web api access with oauth1/2.
+No-boilerplate, async and typed web api access with oauth1/2.
 
 ```py
 pip install slyapi
