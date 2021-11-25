@@ -239,7 +239,6 @@ class WebAPI:
 
         while True:
             page = await method(path, params)
-            print(page)
 
             items = page.get('items')
 
