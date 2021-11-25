@@ -14,7 +14,7 @@ U = TypeVar('U')
 
 Coro = Coroutine[Any, Any, T]
 
-class AsyncLazy(Generic[T], Awaitable[list[T]]):
+class AsyncLazy(Generic[T]):
     '''Does not accumulate any results unless awaited.'''
     gen: AsyncGenerator[T, None]
 
@@ -27,13 +27,13 @@ class AsyncLazy(Generic[T], Awaitable[list[T]]):
     async def _items(self) -> list[T]:
         return [t async for t in self.gen]
 
-    def __await__(self) -> Generator[Any, Any, list[T]]:
+    def __await__(self) -> Generator[Any, None, list[T]]:
         return self._items().__await__()
 
     def map(self, f: Callable[[T], U]) -> 'AsyncTrans[U]':
         return AsyncTrans(self.gen, f)
 
-class AsyncTrans(Generic[U], Awaitable[list[U]], AsyncLazy[Any], ):
+class AsyncTrans(Generic[U], AsyncLazy[Any]):
     '''
     Does not accumulate any results unless awaited.
     Transforms the results of the generator using the mapping function.
@@ -47,6 +47,9 @@ class AsyncTrans(Generic[U], Awaitable[list[U]], AsyncLazy[Any], ):
 
     def __aiter__(self):
         return (self.mapping(t) async for t in self.gen)
+
+    def __await__(self) -> Generator[Any, None, list[U]]:
+        return self._items().__await__()
 
     async def _items(self) -> list[U]:
         return [u async for u in self]
