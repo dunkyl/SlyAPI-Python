@@ -1,6 +1,6 @@
 import weakref
 from enum import Enum
-from typing import Any, AsyncGenerator, Callable, Generator, Generic, TypeVar, cast
+from typing import Any, AsyncGenerator, Callable, Generator, Generic, TypeVar, cast, Awaitable
 
 from collections.abc import Coroutine
 
@@ -14,7 +14,7 @@ U = TypeVar('U')
 
 Coro = Coroutine[Any, Any, T]
 
-class AsyncLazy(Generic[T]):
+class AsyncLazy(Generic[T], Awaitable[list[T]]):
     '''Does not accumulate any results unless awaited.'''
     gen: AsyncGenerator[T, None]
 
@@ -33,7 +33,7 @@ class AsyncLazy(Generic[T]):
     def map(self, f: Callable[[T], U]) -> 'AsyncTrans[U]':
         return AsyncTrans(self.gen, f)
 
-class AsyncTrans(AsyncLazy[Any], Generic[U]):
+class AsyncTrans(Generic[U], Awaitable[list[U]], AsyncLazy[Any], ):
     '''
     Does not accumulate any results unless awaited.
     Transforms the results of the generator using the mapping function.
@@ -104,7 +104,7 @@ class EnumParam(Enum):
     def get_title(self) -> str:
         return self.__class__.__name__[0].lower()+self.__class__.__name__[1:]
 
-    def __add__(self, other: 'EnumParam|_EnumParams') -> 'EnumParam':
+    def __add__(self: T, other: 'Self|_EnumParams') -> T:
         '''Collect with another parameter or set of parameters.'''
         params = _EnumParams()
         params += self
