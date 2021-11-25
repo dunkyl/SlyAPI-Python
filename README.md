@@ -1,4 +1,4 @@
-# ![sly logo](https://raw.githubusercontent.com/dunkyl/SlyMeta/main/sly%20logo.svg) SlyAPI
+# ![sly logo](https://raw.githubusercontent.com/dunkyl/SlyMeta/main/sly%20logo.svg) SlyAPI for Python
 
 > 🚧 **This library is an early work in progress! Breaking changes may be frequent.**
 
