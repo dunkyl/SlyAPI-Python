@@ -77,7 +77,7 @@ class _EnumParams:
         self.params = {}
 
     def __add__(self, other: 'EnumParam|_EnumParams') -> '_EnumParams':
-        new_instance = _EnumParams()
+        new_instance = deepcopy(self)
         match other:
             case EnumParam():
                 other_items = [(other.get_title(), set([other.value]))]
@@ -109,12 +109,8 @@ class EnumParam(Enum):
 
     def __add__(self: T, other: 'Self|_EnumParams') -> T:
         '''Collect with another parameter or set of parameters.'''
-        params = _EnumParams()
-        params += self
-        params += other
-
         # return type is compatible with EnumParam for + and to_dict
-        return cast(EnumParam, params)
+        return cast(EnumParam, _EnumParams() + self + other)
     
     def to_dict(self, delimiter: str=',') -> dict[str, str]:
         '''
