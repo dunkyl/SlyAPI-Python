@@ -1,41 +1,16 @@
-# import os.path, asyncio, json, hashlib, sys
-# import http.server, urllib.parse, webbrowser, secrets
 import weakref
 from enum import Enum
-# from json.decoder import JSONDecodeError
-# import datetime as dt
-# from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Callable, Generic, TypeVar, cast
-
-# import base64
-# from hashlib import sha1
-# import hmac
-# import secrets
-
-# from urllib.parse import urlencode
-
-# from copy import deepcopy, copy
+from typing import Any, AsyncGenerator, Callable, Generator, Generic, TypeVar, cast
 
 from collections.abc import Coroutine
-
-import hashlib
 
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
-def nc_hash(x: str) -> str:
-    h = hashlib.new('ripemd160')
-    h.update(x.encode('utf8'))
-    return h.hexdigest()
-
 T = TypeVar('T')
 U = TypeVar('U')
 
-Json = dict[str, 'Json'] | list['Json'] | str | int | float | None
-JsonMap = dict[str, Json]
-JsonScalar = str | int | float | None
 Coro = Coroutine[Any, Any, T]
-GenOrAsync = AsyncGenerator[T, list[T]]
 
 class AsyncLazy(Generic[T]):
     '''Does not accumulate any results unless awaited.'''
@@ -50,7 +25,7 @@ class AsyncLazy(Generic[T]):
     async def _items(self) -> list[T]:
         return [t async for t in self.gen]
 
-    def __await__(self):
+    def __await__(self) -> Generator[Any, Any, list[T]]:
         return self._items().__await__()
 
     def map(self, f: Callable[[T], U]) -> 'AsyncTrans[U]':
@@ -87,6 +62,9 @@ class APIError(Exception):
         return super().__str__() + F"\nStatus: {self.status}\nReason: {self.reason}"
 
 class EnumParams:
+    '''
+        Collection of API url parameters which have only specific values.
+    '''
     params: list['EnumParam']
 
     def __init__(self, *params: 'EnumParam'):
@@ -139,7 +117,7 @@ class EnumParam(EnumParams, Enum):
             return {}
         return {self.get_title(): self.value}
 
-async def api_err(response: ClientResponse, result: Json = None) -> APIError:
+async def api_err(response: ClientResponse, result: Any = None) -> APIError:
     match result:
         case {'message': msg}:
             return APIError(response.status, msg)
@@ -153,6 +131,7 @@ from .oauth2 import OAuth2User
 from .oauth1 import OAuth1User
 
 def convert_url_params(p: dict[str, Any]|None) -> dict[str, str]:
+    '''Excludes empty-valued parameters'''
     if p is None: return {}
     return {k: str(v) for k, v in p.items() if v is not None and v != ''}
 
@@ -198,7 +177,29 @@ class WebAPI:
         # is garbage collected.
         self._finalize = weakref.finalize(self, self.session._connector._close) # type: ignore ## reportPrivateUsage
 
+        # workaround for:
+        # https://github.com/aio-libs/aiohttp/issues/4324#issuecomment-733884349
+
+        # Replace the event loop destructor thing with one a wrapper which ignores
+        # this specific exception on windows.
+        import sys
+        if sys.platform.startswith("win"):
+            from asyncio.proactor_events import _ProactorBasePipeTransport # type: ignore
+
+            base_del = _ProactorBasePipeTransport.__del__
+            if not hasattr(base_del, '_once'):
+                def quiet_delete(*args, **kwargs): # type: ignore
+                    try:
+                        return base_del(*args, **kwargs) # type: ignore
+                    except RuntimeError as e:
+                        if str(e) != 'Event loop is closed':
+                            raise
+                quiet_delete._once = True # type: ignore
+
+                _ProactorBasePipeTransport.__del__ = quiet_delete
+
     def close(self):
+        '''Closes the http session with the API server. Should be automatic.'''
         self._finalize() 
 
     def _req(self, method: str, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None):
@@ -260,6 +261,7 @@ class WebAPI:
         path: str,
         params: dict[str, Any], # non-const
         limit: int|None) -> AsyncLazy[Any]:
+        '''Return an awaitable and async iterable over google-style paginated items'''
         return AsyncLazy(self._paginated(method, path, params, limit))
 
 # Endpoint = Callable[[WebAPI, T], Coro[U]]
