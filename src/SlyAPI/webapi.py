@@ -7,6 +7,8 @@ from collections.abc import Coroutine
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
+from copy import deepcopy
+
 T = TypeVar('T')
 U = TypeVar('U')
 
@@ -61,61 +63,63 @@ class APIError(Exception):
     def __str__(self) -> str:
         return super().__str__() + F"\nStatus: {self.status}\nReason: {self.reason}"
 
-class EnumParams:
+class _EnumParams:
     '''
-        Collection of API url parameters which have only specific values.
+        Emulate an EnumParam for serialization into URL params.
+        Separate class and hidden since Enum's have special behavior.
     '''
-    params: list['EnumParam']
+    params: dict[str, set[str]]
 
-    def __init__(self, *params: 'EnumParam'):
-        self.params = [param for param in params]
-        # for param in params:
-        #     match param:
-        #         case EnumParam():
-        #             self.params.append(param)
-        #         case EnumParams():
-        #             self.params.extend(param.params)
+    def __init__(self):
+        self.params = {}
 
-    def __add__(self, other: 'EnumParam|EnumParams') -> 'EnumParams':
-        '''Collect with another parameter or set of parameters.'''
+    def __add__(self, other: 'EnumParam|_EnumParams') -> '_EnumParams':
+        new_instance = _EnumParams()
         match other:
             case EnumParam():
-                return EnumParams(*self.params, other)
-            case EnumParams():
-                return EnumParams(*self.params, *other.params)
+                other_items = [(other.get_title(), set([other.value]))]
+            case _EnumParams():
+                other_items = other.params.items()
+        for k, v in other_items:
+            if k not in new_instance.params:
+                new_instance.params[k] = set()
+            new_instance.params[k] |= v
+        return new_instance
 
     def to_dict(self, delimiter: str=',') -> dict[str, str]:
         '''
             Convert packed parameters to a dictionary for use in a URL.
         '''
-        params: dict[str, str] = {}
-        for param in self.params:
-            if param.value is not None:
-                title = param.get_title()
-                if not title in params:
-                    params[title] = param.value
-                else:
-                    params[title] += delimiter+param.value
-        return params
+        return {
+            title: delimiter.join(values)
+            for title, values in self.params.items()
+        }
 
-class EnumParam(EnumParams, Enum):
-    _params: list['EnumParam']
+class EnumParam(Enum):
+    '''
+        Collection of API url parameters which have only specific values.
+        Serializes to a dictionary for use in a URL.
+    '''
     
     def get_title(self) -> str:
-        return self.__class__.__name__.lower()
+        return self.__class__.__name__[0].lower()+self.__class__.__name__[1:]
 
-    def __add__(self, other: 'EnumParam|EnumParams') -> EnumParams:
+    def __add__(self, other: 'EnumParam|_EnumParams') -> 'EnumParam':
         '''Collect with another parameter or set of parameters.'''
-        match other:
-            case EnumParam():
-                return EnumParams(self, other)
-            case EnumParams():
-                return EnumParams(self, *other.params)
+        params = _EnumParams()
+        params += self
+        params += other
+
+        # return type is compatible with EnumParam for + and to_dict
+        return cast(EnumParam, params)
     
     def to_dict(self, delimiter: str=',') -> dict[str, str]:
-        if self.value is None:
-            return {}
-        return {self.get_title(): self.value}
+        '''
+            Convert packed parameters to a dictionary for use in a URL.
+        '''
+        return {
+            self.get_title(): self.value
+        }
 
 async def api_err(response: ClientResponse, result: Any = None) -> APIError:
     match result:
@@ -123,9 +127,6 @@ async def api_err(response: ClientResponse, result: Any = None) -> APIError:
             return APIError(response.status, msg)
         case _:
             return APIError(response.status, await response.text())
-
-class Paginator:
-    pass
 
 from .oauth2 import OAuth2User
 from .oauth1 import OAuth1User
