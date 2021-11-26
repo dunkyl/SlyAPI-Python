@@ -2,7 +2,8 @@ import asyncio, json
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 import secrets
-from typing import Any, NoReturn, cast
+from typing import Any, cast
+from .asyncy import end_loop_workaround
 
 import aiohttp, aiohttp.web
 # import http.server
@@ -111,6 +112,9 @@ async def localhost_flow(client: OAuth2Client, scopes: str) -> OAuth2User:
     '''
     Set up an http server and open a browser to make one grant.
     '''
+
+    end_loop_workaround()
+
     redirect_host = 'localhost'
     redirect_port = 8080
     redirect_uri = F'http://{redirect_host}:{redirect_port}'
