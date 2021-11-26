@@ -1,4 +1,4 @@
-# ![sly logo](https://raw.githubusercontent.com/dunkyl/SlyMeta/main/sly%20logo.svg) SlyAPI
+# ![sly logo](https://raw.githubusercontent.com/dunkyl/SlyMeta/main/sly%20logo.svg) SlyAPI for Python
 
 > 🚧 **This library is an early work in progress! Breaking changes may be frequent.**
 
@@ -12,9 +12,9 @@ pip install slyapi
 
 Meant as a foundation for other libraries more than being used directly. It is used by my more specific libraries:
 
-* [SlyYTDAPI](https://github.com/dunkyl/SlyPyYTDAPI) and SlyYTAAPI: for the YouTube APIs
-* SlyTwitter
-* SlySheets: for Google Sheets
+* [SlyYTDAPI](https://github.com/dunkyl/SlyPyYTDAPI) and [SlyYTAAPI](https://github.com/dunkyl/SlyPyYTAAPI): for the YouTube APIs
+* [SlyTwitter](https://github.com/dunkyl/SlyPyTwitter)
+* [SlySheets](https://github.com/dunkyl/SlyPySheets): for Google Sheets
 
 This library does not provide full coverage of OAuth1 or OAuth2, particularly it does not support the device code flow, nor the legacy implicit flow. Since it is intended to interface with 3rd party APIs, it does not implement the password flow.
 
