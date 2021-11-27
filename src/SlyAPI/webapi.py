@@ -9,6 +9,8 @@ from aiohttp.client_exceptions import ContentTypeError
 
 from copy import deepcopy
 
+from .asyncy import end_loop_workaround
+
 T = TypeVar('T')
 U = TypeVar('U')
 
@@ -210,6 +212,12 @@ class WebAPI:
 
     async def get_json(self, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None) -> dict[str, Any]:
         return await self._req_json('GET', path, params, json=json, data=data)
+
+    async def post_json(self, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None) -> dict[str, Any]:
+        return await self._req_json('POST', path, params, json=json, data=data)
+
+    async def put_json(self, path: str, params: dict[str, Any]|None=None, json: Any=None, data: Any=None) -> dict[str, Any]:
+        return await self._req_json('PUT', path, params, json=json, data=data)
 
     async def _paginated(self,
         method: Callable[[str, dict[str, Any]], Coro[Any]],
