@@ -6,7 +6,7 @@
 
 No-boilerplate, async and typed web api access with oauth1/2.
 
-```py
+```shell
 pip install slyapi
 ```
 
@@ -19,30 +19,6 @@ Meant as a foundation for other libraries more than being used directly. It is u
 This library does not provide full coverage of OAuth1 or OAuth2, particularly it does not support the device code flow, nor the legacy implicit flow. Since it is intended to interface with 3rd party APIs, it does not implement the password flow.
 
 ---
-
-Example direct usage:
-
-```py
-import asyncio
-from SlyAPI import WebAPI
-
-async def main():
-    # don't forget to keep your secrets secret!
-    open_weather = WebAPI(
-        base_url='https://api.openweathermap.org/data/2.5',
-        add_params={ 'appid': open('api_key.txt').read() }
-    )
-
-    status = await open_weather.get_json(
-        '/weather', {
-            'q': 'Seattle,WA,US',
-            'units': 'metric'
-        }
-    )
-    print(F"It's currently {status['main']['temp']}ºC in {status['name']}.")
-
-asyncio.run(main())
-```
 
 Example library usage:
 
@@ -67,23 +43,24 @@ class City:
         # ...
 
 class OpenWeather(WebAPI):
+    base_url = 'https://api.openweathermap.org/data/2.5'
 
-    def __init__(self, api_key: str):
-        super().__init__('https://api.openweathermap.org/data/2.5', {'appid': api_key})
+    async def _async_init(self, api_key: str):
+        await super()._async_init(APIKey('appid', api_key))
         
     async def city(self, 
         where: str,
         mode: Mode=Mode.JSON,
         units: Units=Units.METRIC,
-        lang: str) -> City:
+        lang: str = None) -> City:
         '''
             Get the current weather of a city.
             Location format: `City,State,Country`
             where State and Country are ISO3166 codes.
         '''
         params = {
-            **(mode+units).to_dict()
-            'q': where
+            **(mode+units).to_dict(),
+            'q': where,
             'lang': lang
         }
         return City(await self.get_json('/weather', param))
