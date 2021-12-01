@@ -6,11 +6,11 @@ import json
 class Auth(ABC):
 
     @classmethod
-    def from_file(cls, path: str): raise NotImplemented
+    def from_file(cls, path: str) -> 'Auth': raise NotImplemented
 
     def to_dict(self) -> dict[str, Any]: raise NotImplemented
 
-    async def refresh(self, *args, **kwargs): raise NotImplemented
+    async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented
 
     def get_common_params(self) -> dict[str, Any]: raise NotImplemented
 
@@ -34,7 +34,7 @@ class APIKey(Auth):
     def to_dict(self) -> dict[str, Any]:
         return self.params
 
-    async def refresh(self, *args, **kwargs): raise NotImplemented
+    async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented
 
     def get_common_params(self) -> dict[str, Any]:
         return self.params

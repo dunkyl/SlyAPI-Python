@@ -43,7 +43,7 @@ class _EnumParams:
     def __init__(self):
         self.params = {}
 
-    def __add__(self, other: 'EnumParam|_EnumParams') -> '_EnumParams':
+    def __add__(self, other: 'EnumParam|_EnumParams') -> 'EnumParam':
         new_instance = deepcopy(self)
         match other:
             case EnumParam():
@@ -56,7 +56,7 @@ class _EnumParams:
             if k not in new_instance.params:
                 new_instance.params[k] = set()
             new_instance.params[k] |= v
-        return new_instance
+        return cast(EnumParam, new_instance)
 
     def to_dict(self, delimiter: str = ',') -> dict[str, str]:
         '''
@@ -107,8 +107,8 @@ class WebAPI(AsyncInit):
 
     common_params: dict[str, str]
 
-    def _init(self, auth: Auth = None):
-        super()._async_init()
+    async def _init(self, auth: Auth = None):
+        await super()._async_init()
 
         if auth is not None:
             common_headers = auth.get_common_headers()

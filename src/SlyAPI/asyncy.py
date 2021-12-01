@@ -1,5 +1,5 @@
 import functools
-from typing import Awaitable, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+from typing import Awaitable, Coroutine, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -30,10 +30,10 @@ def end_loop_workaround():
             _ProactorBasePipeTransport.__del__ = quiet_delete
 
 
-TSelfAtAsyncClass = TypeVar("TSelfAtAsyncClass", bound="AsyncClass")
+TSelfAtAsyncClass = TypeVar("TSelfAtAsyncClass", bound="AsyncInit")
 
 
-class AsyncInit(Awaitable[TSelfAtAsyncClass]):
+class AsyncInit(): # Awaitable[TSelfAtAsyncClass]
     '''
     Class which depends on some asynchronous initialization.
     To use, override _init() to do the actual initialization with call to super()._init().
@@ -41,19 +41,23 @@ class AsyncInit(Awaitable[TSelfAtAsyncClass]):
     # TODO: result in an error
     '''
     _async_ready = False
-    _async_init_coro = None
+    _async_init_coro: Coroutine[Any, Any, Any] | None = None
 
-    def __init__(self, *args, **kwargs):
-        self._async_init_coro = self._async_init(*args, **kwargs)
-
-    async def _async_init(self):
-        if not self._async_ready:
-            self._async_ready = True
+    def __init__(self, *args: Any, **kwargs: Any):
+        if hasattr(self, '_async_init'):
+            self._async_init_coro = getattr(self, '_async_init')(*args, **kwargs)
         else:
-            raise RuntimeError("Already initialized. AsyncInit classes cannot be awaited more than once.")
+            raise RuntimeError("AsyncInit class must implement _async_init().")
 
-    def __await__(self):
-        return self._async_init_coro.__await__()
+    def __await__(self: TSelfAtAsyncClass) -> Generator[Any, Any, TSelfAtAsyncClass]:
+        async def combined_init() -> TSelfAtAsyncClass:
+            if self._async_init_coro is None:
+                raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
+            else:
+                await self._async_init_coro
+                self._async_ready = True
+                return self
+        return combined_init().__await__()
 
 
 class AsyncLazy(Generic[T]):
@@ -76,9 +80,9 @@ class AsyncLazy(Generic[T]):
         return AsyncTrans(self.gen, f)
 
     @classmethod
-    def wrap(cls, fn: Callable[[Any, ...], AsyncGenerator[T, None]]):
+    def wrap(cls, fn: Callable[[Any], AsyncGenerator[T, None]]):
         @functools.wraps
-        def wrapped(*args, **kwargs):
+        def wrapped(*args: Any, **kwargs: Any) -> AsyncLazy[T]:
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
 
