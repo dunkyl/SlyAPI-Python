@@ -63,7 +63,7 @@ class OpenWeather(WebAPI):
             'q': where,
             'lang': lang
         }
-        return City(await self.get_json('/weather', param))
+        return City(await self.get_json('/weather', params))
 
     # ...
 ```
