@@ -175,6 +175,8 @@ class WebAPI(AsyncInit):
 
     async def put_json(self, path: str, params: Json = None, json: Any = None, data: Any = None) -> \
             dict[str, Any]:
+        # self.paginated()
+        # self.paginated()
         return await self._req_json('PUT', path, params, json=json, data=data)
 
     @AsyncLazy.wrap
