@@ -107,8 +107,8 @@ class WebAPI(AsyncInit):
 
     common_params: dict[str, str]
 
-    async def _init(self, auth: Auth = None):
-        await super()._async_init()
+    async def _async_init(self, auth: Auth | None = None):
+        # await super()._async_init()
 
         if auth is not None:
             common_headers = auth.get_common_headers()
@@ -140,7 +140,7 @@ class WebAPI(AsyncInit):
         '''Closes the http session with the API server. Should be automatic.'''
         self._finalize()
 
-    def _req(self, method: str, path: str, params: Json = None, json: Any = None, data: Any = None):
+    def _req(self, method: str, path: str, params: Json | None = None, json: Any = None, data: Any = None):
         return self.session.request(
             method, f"{self.base_url}{path}",
             params=convert_url_params(params) | self.common_params,
@@ -165,15 +165,15 @@ class WebAPI(AsyncInit):
             if response.status != 204:
                 raise await api_err(response)
 
-    async def get_json(self, path: str, params: Json = None, json: Any = None, data: Any = None) -> \
+    async def get_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
             dict[str, Any]:
         return await self._req_json('GET', path, params, json=json, data=data)
 
-    async def post_json(self, path: str, params: Json = None, json: Any = None, data: Any = None) -> \
+    async def post_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
             dict[str, Any]:
         return await self._req_json('POST', path, params, json=json, data=data)
 
-    async def put_json(self, path: str, params: Json = None, json: Any = None, data: Any = None) -> \
+    async def put_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
             dict[str, Any]:
         # self.paginated()
         # self.paginated()

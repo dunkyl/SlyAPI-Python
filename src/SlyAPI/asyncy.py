@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import functools
 from typing import Awaitable, Coroutine, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
 
@@ -33,15 +34,19 @@ def end_loop_workaround():
 TSelfAtAsyncClass = TypeVar("TSelfAtAsyncClass", bound="AsyncInit")
 
 
-class AsyncInit(): # Awaitable[TSelfAtAsyncClass]
+class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
     '''
     Class which depends on some asynchronous initialization.
-    To use, override _init() to do the actual initialization with call to super()._init().
+    To use, override _async_init() to do the actual initialization.
     Accessing any non-static public attributes before the async initialization is complete will result in an error.
     # TODO: result in an error
     '''
     _async_ready = False
     _async_init_coro: Coroutine[Any, Any, Any] | None = None
+
+    # @abstractmethod
+    # TODO: enforce implementation?
+    # async def _async_init(self) -> None: pass
 
     def __init__(self, *args: Any, **kwargs: Any):
         if hasattr(self, '_async_init'):
@@ -80,7 +85,7 @@ class AsyncLazy(Generic[T]):
         return AsyncTrans(self.gen, f)
 
     @classmethod
-    def wrap(cls, fn: Callable[[Any, ...], AsyncGenerator[T, None]]):
+    def wrap(cls, fn: Callable[..., AsyncGenerator[T, None]]):
         @functools.wraps(fn)
         def wrapped(*args: Any, **kwargs: Any) -> AsyncLazy[T]:
             return AsyncLazy(fn(*args, **kwargs))
