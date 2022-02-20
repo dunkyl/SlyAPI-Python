@@ -45,9 +45,9 @@ class City:
 class OpenWeather(WebAPI):
     base_url = 'https://api.openweathermap.org/data/2.5'
 
-    async def _async_init(self, api_key: str):
-        await super()._async_init(APIKey('appid', api_key))
-        
+    def __init__(self, api_key: str):
+        super().__init__(APIKey('appid', api_key))
+
     async def city(self, 
         where: str,
         mode: Mode=Mode.JSON,
