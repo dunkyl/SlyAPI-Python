@@ -1,8 +1,4 @@
-import pytest
 from SlyAPI import *
-
-pytestmark = pytest.mark.asyncio
-
 
 class TestAPI(WebAPI):
 
