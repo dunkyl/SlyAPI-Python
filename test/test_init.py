@@ -1,5 +1,8 @@
-import asyncio
+import pytest
 from SlyAPI import *
+
+pytestmark = pytest.mark.asyncio
+
 
 class TestAPI(WebAPI):
 
@@ -13,9 +16,9 @@ class TestAPI(WebAPI):
 
 
 
-async def main():
+async def test_error_unintialized():
 
-    api_unawaited = WebAPI()
+    api_unawaited = TestAPI()
 
     error = None
 
@@ -26,8 +29,6 @@ async def main():
 
     assert error is not None
 
-    api_awaited = await WebAPI()
+    api_awaited = await api_unawaited
 
     print( api_awaited.attr_initialized_after_await )
-
-asyncio.run(main())
