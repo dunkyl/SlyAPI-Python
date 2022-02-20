@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import functools
-from typing import Coroutine, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+from typing import Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
 
 T = TypeVar('T')
 U = TypeVar('U')
 
+T_Params = ParamSpec("T_Params")
+U_Params = ParamSpec("U_Params")
 
 def end_loop_workaround():
     # workaround for:
@@ -98,9 +100,9 @@ class AsyncLazy(Generic[T]):
         return AsyncTrans(self.gen, f)
 
     @classmethod
-    def wrap(cls, fn: Callable[..., AsyncGenerator[T, None]]):
+    def wrap(cls, fn: Callable[T_Params, AsyncGenerator[U, None]]):
         @functools.wraps(fn)
-        def wrapped(*args: Any, **kwargs: Any) -> AsyncLazy[T]:
+        def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[U]:
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
 
