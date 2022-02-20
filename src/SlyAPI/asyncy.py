@@ -58,12 +58,12 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
 
     def __await__(self: TSelfAtAsyncClass) -> Generator[Any, Any, TSelfAtAsyncClass]:
         async def combined_init() -> TSelfAtAsyncClass:
-            if self._async_init_coro is None:
-                raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
-            else:
-                await self._async_init_coro
-                self._async_ready = True
-                return self
+            # if self._async_init_coro is None:
+            #     raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
+            # else:
+            self._async_ready = True
+            await self._async_init()
+            return self
         return combined_init().__await__()
 
     # protect members from being accessed before async initialization is complete
@@ -71,10 +71,11 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
         # name not in ('_async_init_coro', '_async_ready', '__await__')
         # private attributes are allowed to be accessed
         # TODO: consider if all private attributes should be allowed
-        if not self._async_ready and not name.startswith('_'):
+        # note: order of checks is important
+        if not name.startswith('_') and not self._async_ready:
             raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
         else:
-            return super().__getattribute__(name)
+            return object.__getattribute__(self, name)
 
 
 class AsyncLazy(Generic[T]):
