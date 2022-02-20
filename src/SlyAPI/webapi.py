@@ -106,24 +106,26 @@ class WebAPI(AsyncInit):
     auth: Auth | None
 
     common_params: dict[str, str]
+    common_headers: dict[str, Any]
 
-    async def _async_init(self, auth: Auth | None = None):
-        # await super()._async_init()
-
+    def __init__(self, auth: Auth | None = None):
+        
         if auth is not None:
-            common_headers = auth.get_common_headers()
+            self.common_headers = auth.get_common_headers()
             self.common_params = auth.get_common_params()
         else:
-            common_headers = {}
+            self.common_headers = {}
             self.common_params = {}
 
         self.auth = auth
+
+    async def _async_init(self):
 
         # the aiohttp context manager does no asynchronous work when entering.
         # Using the context is not necessary as long as ClientSession.close() 
         # is called.
         self.session = await ClientSession(
-            headers=common_headers).__aenter__()
+            headers=self.common_headers).__aenter__()
 
         # Although ClientSession.close() may be a coroutine, but it is not
         # necessary to await it as of the time of writing, since it's 

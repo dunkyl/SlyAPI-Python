@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import functools
-from typing import Awaitable, Coroutine, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+from typing import Coroutine, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -39,20 +39,22 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
     Class which depends on some asynchronous initialization.
     To use, override _async_init() to do the actual initialization.
     Accessing any non-static public attributes before the async initialization is complete will result in an error.
-    # TODO: result in an error
     '''
     _async_ready = False
     _async_init_coro: Coroutine[Any, Any, Any] | None = None
 
-    # @abstractmethod
-    # TODO: enforce implementation?
-    # async def _async_init(self) -> None: pass
+    # implementation must initialize the instance
+    # arguments should be already passed to the constructor
+    @abstractmethod
+    async def _async_init(self): pass
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        if hasattr(self, '_async_init'):
-            self._async_init_coro = getattr(self, '_async_init')(*args, **kwargs)
-        else:
-            raise RuntimeError("AsyncInit class must implement _async_init().")
+    # not passing args from constructor to _async_init() anymore
+    # both are expected to be implemented in the subclass
+    # def __init__(self, *args: Any, **kwargs: Any):
+    #     if hasattr(self, '_async_init'):
+    #         self._async_init_coro = getattr(self, '_async_init')(*args, **kwargs)
+    #     else:
+    #         raise RuntimeError("AsyncInit class must implement _async_init().")
 
     def __await__(self: TSelfAtAsyncClass) -> Generator[Any, Any, TSelfAtAsyncClass]:
         async def combined_init() -> TSelfAtAsyncClass:
@@ -63,6 +65,16 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
                 self._async_ready = True
                 return self
         return combined_init().__await__()
+
+    # protect members from being accessed before async initialization is complete
+    def __getattribute__(self, name: str) -> Any:
+        # name not in ('_async_init_coro', '_async_ready', '__await__')
+        # private attributes are allowed to be accessed
+        # TODO: consider if all private attributes should be allowed
+        if not self._async_ready and not name.startswith('_'):
+            raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
+        else:
+            return super().__getattribute__(name)
 
 
 class AsyncLazy(Generic[T]):
