@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any
 import json
 
@@ -6,15 +6,20 @@ import json
 class Auth(ABC):
 
     @classmethod
-    def from_file(cls, path: str) -> 'Auth': raise NotImplemented
+    @abstractmethod
+    def from_file(cls, path: str) -> 'Auth': pass
 
-    def to_dict(self) -> dict[str, Any]: raise NotImplemented
+    @abstractmethod
+    def to_dict(self) -> dict[str, Any]: pass
 
-    async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented
+    @abstractmethod
+    async def refresh(self, *args: Any, **kwargs: Any): pass
 
-    def get_common_params(self) -> dict[str, Any]: raise NotImplemented
+    @abstractmethod
+    def get_common_params(self) -> dict[str, Any]: pass
 
-    def get_common_headers(self) -> dict[str, Any]: raise NotImplemented
+    @abstractmethod
+    def get_common_headers(self) -> dict[str, Any]: pass
 
 
 class APIKey(Auth):
@@ -34,7 +39,7 @@ class APIKey(Auth):
     def to_dict(self) -> dict[str, Any]:
         return self.params
 
-    async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented
+    async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented()
 
     def get_common_params(self) -> dict[str, Any]:
         return self.params

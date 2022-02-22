@@ -100,9 +100,9 @@ class AsyncLazy(Generic[T]):
         return AsyncTrans(self.gen, f)
 
     @classmethod
-    def wrap(cls, fn: Callable[T_Params, AsyncGenerator[U, None]]):
+    def wrap(cls, fn: Callable[T_Params, AsyncGenerator[T, None]]):
         @functools.wraps(fn)
-        def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[U]:
+        def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[T]:
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
 

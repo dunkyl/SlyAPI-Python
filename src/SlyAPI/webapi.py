@@ -1,16 +1,30 @@
+import base64
+from dataclasses import dataclass
+from datetime import datetime
+import secrets
 import weakref
 from copy import deepcopy
 from enum import Enum
-from typing import Any, AsyncGenerator, TypeVar, cast
+from typing import Any, AsyncGenerator, Generic, Literal, TypeAlias, TypeVar, cast
 
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
+
+from SlyAPI.oauth1 import OAuth1
 
 from .asyncy import end_loop_workaround, AsyncInit, AsyncLazy
 from .auth import Auth
 
 Json = dict[str, Any]
 
+# class StringEnum(Enum):
+#     def __str__(self) -> str:
+#         return self.name
+
+# class Method(StringEnum):
+#     Get
+
+Method = Literal['GET'] | 'POST' | 'PUT' | 'DELETE'
 
 class APIError(Exception):
     status: int
@@ -99,6 +113,13 @@ def convert_url_params(p: Json | None) -> dict[str, str]:
     if p is None: return {}
     return {k: str(v) for k, v in p.items() if v is not None and v != ''}
 
+T = TypeVar('T')
+@dataclass
+class APIObj(Generic[T]):
+    _service: T
+
+    def __init__(self, service: T):
+        self._service = service
 
 class WebAPI(AsyncInit):
     base_url: str
@@ -142,16 +163,22 @@ class WebAPI(AsyncInit):
         '''Closes the http session with the API server. Should be automatic.'''
         self._finalize()
 
-    def _req(self, method: str, path: str, params: Json | None = None, json: Any = None, data: Any = None):
+    def _req(self, method: str, path: str, params: Json | None = None, json: Any = None, data: Any = None, headers: Any = None):
+        # print('--------')
+        # print(F"REQUEST:\n{method}\n\n{self.base_url+path}\n\n{params}\n\n{json}\n\n{data}\n\n{headers}\n----END REQUEST----")
+        # import sys
+        # import time
+        # time.sleep(0.1)
+        # sys.exit(0)
         return self.session.request(
-            method, f"{self.base_url}{path}",
+            method, F"{self.base_url}{path}",
             params=convert_url_params(params) | self.common_params,
-            data=data, json=json)
+            data=data, json=json, headers=headers)
 
-    async def _req_json(self, method: str, path: str, params: Json | None, json: Any, data: Any) -> Any:
+    async def _req_json(self, method: str, path: str, params: Json | None, json: Any, data: Any, headers: Any = None) -> Any:
         async with self._req(
                 method, path,
-                params, json, data) as response:
+                params, json, data, headers=headers) as response:
             try:
                 result = await response.json()
             except ContentTypeError:
@@ -180,6 +207,14 @@ class WebAPI(AsyncInit):
         # self.paginated()
         # self.paginated()
         return await self._req_json('PUT', path, params, json=json, data=data)
+
+    async def req_form_oauth1(self, method: str, path: str, data: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(self.auth, OAuth1):
+            raise TypeError("OAuth1 is required for this method.")
+
+        oauth_headers = self.auth.get_headers(F"{self.base_url}{path}", method, data)
+        
+        return await self._req_json('POST', path, None, json=None, data=data, headers=oauth_headers)
 
     @AsyncLazy.wrap
     # TODO: google only?
