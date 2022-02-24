@@ -68,16 +68,20 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
             return self
         return combined_init().__await__()
 
-    # protect members from being accessed before async initialization is complete
-    def __getattribute__(self, name: str) -> Any:
-        # name not in ('_async_init_coro', '_async_ready', '__await__')
-        # private attributes are allowed to be accessed
-        # TODO: consider if all private attributes should be allowed
-        # note: order of checks is important
-        if not name.startswith('_') and not self._async_ready:
-            raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
-        else:
-            return object.__getattribute__(self, name)
+# protect members from being accessed before async initialization is complete
+def _AsyncInit_get_attr(self: AsyncInit, name: str) -> Any:
+    # name not in ('_async_init_coro', '_async_ready', '__await__')
+    # private attributes are allowed to be accessed
+    # TODO: consider if all private attributes should be allowed
+    # note: order of checks is important
+    if not name.startswith('_') and not self._async_ready: # type: ignore
+        raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
+    else:
+        return object.__getattribute__(self, name)
+# workaround to preserve type checks for accessing undefined methods
+# Pylance, at least, will presume __getattribute__ will succeed and
+# not raise an AttributeError
+setattr(AsyncInit, '__getattribute__', _AsyncInit_get_attr)
 
 
 class AsyncLazy(Generic[T]):

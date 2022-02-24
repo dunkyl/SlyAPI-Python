@@ -1,25 +1,23 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TypeVar
 import json
 
+import aiohttp
+
+from .web import Request
+
+TSelf = TypeVar('TSelf')
 
 class Auth(ABC):
 
-    @classmethod
     @abstractmethod
-    def from_file(cls, path: str) -> 'Auth': pass
+    async def refresh(self, session: aiohttp.ClientSession): pass
 
     @abstractmethod
-    def to_dict(self) -> dict[str, Any]: pass
+    def sign_request(self, request: Request, do_user: bool = True) -> Request: pass
 
     @abstractmethod
-    async def refresh(self, *args: Any, **kwargs: Any): pass
-
-    @abstractmethod
-    def get_common_params(self) -> dict[str, Any]: pass
-
-    @abstractmethod
-    def get_common_headers(self) -> dict[str, Any]: pass
+    async def user_auth_flow(self, redirect_host: str, redirect_port: int, **kwargs: str): pass
 
 
 class APIKey(Auth):
@@ -36,13 +34,39 @@ class APIKey(Auth):
             raise ValueError('Unknown API Key format. Should be JSON: {ParamName: Key}')
         return cls(*data.items().pop())
 
-    def to_dict(self) -> dict[str, Any]:
-        return self.params
-
     async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented()
 
-    def get_common_params(self) -> dict[str, Any]:
-        return self.params
+    def sign_request(self, request: Request, do_user: bool = True) -> Request:
+        request.query_params |= self.params
+        return request
 
-    def get_common_headers(self) -> dict[str, Any]:
-        return {}
+    async def user_auth_flow(self, *args: Any, **kwargs: Any): raise NotImplemented()
+
+    # @classmethod
+    # async def flow(cls: type[TSelf], **kwargs: str) -> TSelf:
+        
+    #     print('Please retrieve an API key from the service provider.')
+    #     input("Press Enter to continue...")
+        
+    #     destination_file = kwargs.get('destination')
+    #     if destination_file is None:
+    #         destination_file = input('Enter destination file path: ')
+
+    #     api_key_param = kwargs.get('param_name')
+    #     if api_key_param is None:
+    #         api_key_param = input('Enter query parameter name: ')
+
+    #     api_key_secret = kwargs.get('secret')
+    #     if api_key_secret is None:
+    #         api_key_secret = input('Enter API key secret: ')
+
+    #     obj = cls(api_key_param, api_key_secret)
+
+    #     with open(destination_file, 'w') as f:
+    #         json.dump(obj.to_dict(), f)
+
+    #     print(f'API key saved to {destination_file}')
+
+    #     return obj
+
+

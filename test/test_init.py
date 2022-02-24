@@ -10,8 +10,6 @@ class TestAPI(WebAPI):
         await super()._async_init()
         self.attr_initialized_after_await = 1
 
-
-
 async def test_error_uninitialized():
 
     api_unawaited = TestAPI()
