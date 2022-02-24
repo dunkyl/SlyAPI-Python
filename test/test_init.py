@@ -12,7 +12,7 @@ class TestAPI(WebAPI):
 
 
 
-async def test_error_unintialized():
+async def test_error_uninitialized():
 
     api_unawaited = TestAPI()
 
