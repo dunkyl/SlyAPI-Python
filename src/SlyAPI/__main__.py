@@ -12,18 +12,19 @@ args = sys.argv[1:]
 
 match args:
     case ['oauth1-flow', app_file, user_file]:
-        app = OAuth1(**json.load(open(app_file, 'r')))
+        app = OAuth1(json.load(open(app_file, 'r')))
         asyncio.run(
             app.user_auth_flow('127.0.0.1', 8080))
         with open(user_file, 'w') as f:
             json.dump(asdict(app.user), f, indent=4)
     case ['oauth2-flow', app_file, user_file, *scopes]:
-        app = OAuth2(**json.load(open(app_file, 'r')))
+        app = OAuth2(json.load(open(app_file, 'r')))
         scopes = ' '.join(scopes)
         asyncio.run(
             app.user_auth_flow('localhost', 8080, scopes=scopes))
+        assert(app.user is not None)
         with open(user_file, 'w') as f:
-            json.dump(asdict(app.user), f, indent=4)
+            json.dump(app.user.to_dict(), f, indent=4)
     case ['scaffold', kind, app_file]:
         if kind == 'oauth1':
             example = {
@@ -35,7 +36,7 @@ match args:
             }
         elif kind == 'oauth2':
             example = {
-                'key': '',
+                'id': '',
                 'secret': '',
                 'token_uri': '',
                 'auth_uri': ''

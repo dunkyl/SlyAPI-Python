@@ -20,6 +20,16 @@ class OAuth2User:
     def __init__(self, source: dict[str, Any]) -> None:
         match source:
             case {
+                'token': token,
+                'refresh_token': refresh_token,
+                'expires_at': expires_at_str,
+                'token_type': token_type,
+            }: #dumps
+                self.token = token
+                self.refresh_token = refresh_token
+                self.expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+                self.token_type = token_type
+            case {
                 'access_token': token,
                 'refresh_token': refresh_token,
                 'expires_in': expires_str,
@@ -34,6 +44,13 @@ class OAuth2User:
             case _:
                 raise ValueError(F"Invalid OAuth2User source: {source}")
 
+    def to_dict(self) -> dict[str, str]:
+        return {
+            'token': self.token,
+            'refresh_token': self.refresh_token,
+            'expires_at': self.expires_at.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'token_type': self.token_type,
+        }
 
 @dataclass
 class OAuth2(Auth):
@@ -44,6 +61,17 @@ class OAuth2(Auth):
     token_uri: str # flow step 2
 
     user: OAuth2User | None = None
+
+    def __init__(self, source: dict[str, Any], user: OAuth2User | None = None) -> None:
+        match source:
+            case { 'id': id_, 'secret': secret, 'auth_uri': auth_uri, 'token_uri': token_uri}: # dumps
+                self.id = id_
+                self.secret = secret
+                self.auth_uri = auth_uri
+                self.token_uri = token_uri
+            case _:
+                raise ValueError(F"Invalid OAuth1 source: {source}")
+        self.user = user
 
     def get_auth_url(self, redirect_uri: str, state: str, scopes: str) -> tuple[str, str]:
         challenge = secrets.token_urlsafe(54)
