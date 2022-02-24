@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import secrets
 from typing import Any
 
+from .auth import Auth
 from .web import Request, serve_one_request
 
 import aiohttp, aiohttp.web
@@ -35,7 +36,7 @@ class OAuth2User:
 
 
 @dataclass
-class OAuth2:
+class OAuth2(Auth):
     id: str
     secret: str
 
@@ -78,7 +79,8 @@ class OAuth2:
             if resp.status != 200:
                 raise Exception(f'Refresh failed: {resp.status}')
             result = await resp.json()
-            return OAuth2User(result)
+            user = OAuth2User(result)
+        self.user = user
     # @staticmethod
     # def from_file(filename: str) -> 'OAuth2':
     #     with open(filename, 'r') as f:

@@ -88,9 +88,16 @@ class OAuth1(Auth):
 
     user: OAuth1User | None = None
 
-    def __init__(self, consumer_key: str, consumer_secret: str, user: OAuth1User | None = None) -> None:
-        self.key = consumer_key
-        self.secret = consumer_secret
+    def __init__(self, source: dict[str, Any], user: OAuth1User | None = None) -> None:
+        match source:
+            case { 'key': key, 'secret': secret, 'request_uri': request_uri, 'authorize_uri': authorize_uri, 'access_uri': access_uri }: # dumps
+                self.key = key
+                self.secret = secret
+                self.request_uri = request_uri
+                self.authorize_uri = authorize_uri
+                self.access_uri = access_uri
+            case _:
+                raise ValueError(F"Invalid OAuth1 source: {source}")
         self.user = user
 
     async def refresh(self, session: aiohttp.ClientSession):
