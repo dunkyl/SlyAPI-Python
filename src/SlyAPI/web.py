@@ -37,6 +37,9 @@ class Request:
             params = self.query_params
         return session.request(self.method.value, self.url, json=json, data=data, params=params, headers=headers)
 
+    def __str__(self) -> str:
+        return F"{self.method.value} {self.url} {self.query_params} {self.headers} {self.data}"
+
 async def serve_one_request(host: str, port: int, response_body: str) -> dict[str, str]:
 
     query: dict[str, str] = {}

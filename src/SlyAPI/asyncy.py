@@ -47,6 +47,7 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
 
     # implementation must initialize the instance
     # arguments should be already passed to the constructor
+    # and this method must set self._async_ready to True
     @abstractmethod
     async def _async_init(self): pass
 
@@ -63,7 +64,6 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
             # if self._async_init_coro is None:
             #     raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
             # else:
-            self._async_ready = True
             await self._async_init()
             return self
         return combined_init().__await__()

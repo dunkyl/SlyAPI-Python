@@ -118,7 +118,7 @@ class WebAPI(AsyncInit):
         self.auth = auth
 
     async def _async_init(self):
-
+        self._async_ready = True
         # the aiohttp context manager does no asynchronous work when entering.
         # Using the context is not necessary as long as ClientSession.close() 
         # is called.
@@ -169,7 +169,7 @@ class WebAPI(AsyncInit):
             data_: dict[str, Any] = {}
         req = Request(method, full_url, convert_url_params(params), {}, data_, data_is_json)
         if self.auth is not None:
-            req = self.auth.sign_request(req)
+            req = await self.auth.sign_request(self.session, req)
         return await self._req_json(req)
 
     async def get_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
