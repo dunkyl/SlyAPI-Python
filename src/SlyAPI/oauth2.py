@@ -1,5 +1,6 @@
+import asyncio
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import secrets
 from typing import Any
@@ -18,6 +19,7 @@ class OAuth2User:
     expires_at: datetime
     token_type: str = 'Bearer'
     source_path: str | None = None
+    scopes: list[str] = field(default_factory=list)
 
     def __init__(self, source: str | dict[str, Any], source_path: str | None = None) -> None:
         match source:
@@ -31,18 +33,20 @@ class OAuth2User:
                 'refresh_token': refresh_token,
                 'expires_at': expires_at_str,
                 'token_type': token_type,
+                'scopes': scopes
             }: #dumps
                 self.token = token
                 self.refresh_token = refresh_token
                 self.expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%S.%fZ')
                 self.token_type = token_type
                 self.source_path = source_path
+                self.scopes = scopes
             case {
                 'access_token': token,
                 'refresh_token': refresh_token,
                 'expires_in': expires_str,
                 'token_type': token_type,
-                **_others
+                **others
             }: # OAuth 2 grant response
                 expiry = datetime.utcnow() + timedelta(seconds=int(expires_str))
                 self.token = token
@@ -50,9 +54,10 @@ class OAuth2User:
                 self.expires_at = expiry
                 self.token_type = token_type
                 self.source_path = source_path
+                if 'scope' in others:
+                    self.scopes = others['scope'].split(' ')
             case _:
                 raise ValueError(F"Invalid OAuth2User source: {source}")
-        
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -79,6 +84,8 @@ class OAuth2(Auth):
 
     user: OAuth2User | None = None
 
+    _refresh_task: asyncio.Task[None] | None = None
+
     def __init__(self, source: str | dict[str, Any], user: OAuth2User | None = None) -> None:
         match source:
             case str(): # file path
@@ -95,6 +102,13 @@ class OAuth2(Auth):
                 raise ValueError(F"Invalid OAuth2 source: {source}")
         self.user = user
 
+    def verify_scope(self, scope: str):
+        if not self.user:
+            raise ValueError("User credentials must be used when scope is specified")
+        if not scope in self.user.scopes:
+            raise ValueError(F"User credentials do not have the scope: {scope}")
+        return True
+
     def get_auth_url(self, redirect_uri: str, state: str, scopes: str) -> tuple[str, str]:
         challenge = secrets.token_urlsafe(54)
         params = {
@@ -109,8 +123,12 @@ class OAuth2(Auth):
 
     async def sign_request(self, session: aiohttp.ClientSession, request: Request, do_user: bool = True) -> Request:
         if self.user is not None and do_user:
-            if datetime.utcnow() > self.user.expires_at:
-                await self.refresh(session)
+            if self._refresh_task is not None:
+                await asyncio.wait_for(self._refresh_task, timeout=None)
+            elif datetime.utcnow() > self.user.expires_at:
+                self._refresh_task = asyncio.create_task(self.refresh(session))
+                await self._refresh_task
+                self._refresh_task = None
             request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
         else:
             raise NotImplemented("OAuth request signing without user is not yet implemented.")
