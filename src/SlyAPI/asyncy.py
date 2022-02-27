@@ -99,6 +99,7 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
 
     # implementation must initialize the instance
     # arguments should be already passed to the constructor
+    # and this method must set self._async_ready to True
     @abstractmethod
     async def _async_init(self): pass
 
@@ -115,21 +116,24 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
             # if self._async_init_coro is None:
             #     raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
             # else:
-            self._async_ready = True
             await self._async_init()
             return self
         return combined_init().__await__()
 
-    # protect members from being accessed before async initialization is complete
-    def __getattribute__(self, name: str) -> Any:
-        # name not in ('_async_init_coro', '_async_ready', '__await__')
-        # private attributes are allowed to be accessed
-        # TODO: consider if all private attributes should be allowed
-        # note: order of checks is important
-        if not name.startswith('_') and not self._async_ready:
-            raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
-        else:
-            return object.__getattribute__(self, name)
+# protect members from being accessed before async initialization is complete
+def _AsyncInit_get_attr(self: AsyncInit, name: str) -> Any:
+    # name not in ('_async_init_coro', '_async_ready', '__await__')
+    # private attributes are allowed to be accessed
+    # TODO: consider if all private attributes should be allowed
+    # note: order of checks is important
+    if not name.startswith('_') and not self._async_ready: # type: ignore
+        raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
+    else:
+        return object.__getattribute__(self, name)
+# workaround to preserve type checks for accessing undefined methods
+# Pylance, at least, will presume __getattribute__ will succeed and
+# not raise an AttributeError
+setattr(AsyncInit, '__getattribute__', _AsyncInit_get_attr)
 
 
 class AsyncLazy(Generic[T]):
@@ -152,9 +156,9 @@ class AsyncLazy(Generic[T]):
         return AsyncTrans(self.gen, f)
 
     @classmethod
-    def wrap(cls, fn: Callable[T_Params, AsyncGenerator[U, None]]):
+    def wrap(cls, fn: Callable[T_Params, AsyncGenerator[T, None]]):
         @functools.wraps(fn)
-        def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[U]:
+        def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[T]:
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
 

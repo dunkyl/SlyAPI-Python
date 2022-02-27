@@ -15,6 +15,7 @@ Meant as a foundation for other libraries more than being used directly. It is u
 * [SlyYTDAPI](https://github.com/dunkyl/SlyPyYTDAPI) and [SlyYTAAPI](https://github.com/dunkyl/SlyPyYTAAPI): for the YouTube APIs
 * [SlyTwitter](https://github.com/dunkyl/SlyPyTwitter)
 * [SlySheets](https://github.com/dunkyl/SlyPySheets): for Google Sheets
+* [SlyGmail](https://github.com/dunkyl/SlyPyGmail)
 
 This library does not provide full coverage of OAuth1 or OAuth2, particularly it does not support the device code flow, nor the legacy implicit flow. Since it is intended to interface with 3rd party APIs, it does not implement the password flow.
 

@@ -1,16 +1,17 @@
+from dataclasses import dataclass
 import weakref
 from copy import deepcopy
 from enum import Enum
-from typing import Any, AsyncGenerator, TypeVar, cast
+from typing import Any, AsyncGenerator, Generic, TypeVar, cast
 
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
 from .asyncy import end_loop_workaround, AsyncInit, AsyncLazy
 from .auth import Auth
+from .web import Request, Method
 
 Json = dict[str, Any]
-
 
 class APIError(Exception):
     status: int
@@ -67,6 +68,9 @@ class _EnumParams:
             for title, values in self.params.items()
         }
 
+    def __contains__(self, member: 'EnumParam') -> bool:
+        return member.value in self.params[member.get_title()]
+
 
 Self = TypeVar('Self')
 
@@ -82,7 +86,7 @@ class EnumParam(Enum):
 
     def __add__(self: Self, other: 'EnumParam|_EnumParams') -> Self:
         '''Collect with another parameter or set of parameters.'''
-        # return type is compatible with EnumParam for + and to_dict
+        # return type is compatible with EnumParam for + and to_dict and in
         return _EnumParams() + self + other  # type: ignore
 
     def to_dict(self, _delimiter: str = ',') -> dict[str, str]:
@@ -93,39 +97,37 @@ class EnumParam(Enum):
             self.get_title(): self.value
         }
 
+    def __contains__(self, member: 'EnumParam') -> bool:
+        return self.value == member.value
 
 def convert_url_params(p: Json | None) -> dict[str, str]:
     '''Excludes empty-valued parameters'''
     if p is None: return {}
     return {k: str(v) for k, v in p.items() if v is not None and v != ''}
 
+T = TypeVar('T')
+@dataclass
+class APIObj(Generic[T]):
+    _service: T
+
+    def __init__(self, service: T):
+        self._service = service
 
 class WebAPI(AsyncInit):
     base_url: str
     session: ClientSession
     auth: Auth | None
 
-    common_params: dict[str, str]
-    common_headers: dict[str, Any]
-
     def __init__(self, auth: Auth | None = None):
         
-        if auth is not None:
-            self.common_headers = auth.get_common_headers()
-            self.common_params = auth.get_common_params()
-        else:
-            self.common_headers = {}
-            self.common_params = {}
-
         self.auth = auth
 
     async def _async_init(self):
-
+        self._async_ready = True
         # the aiohttp context manager does no asynchronous work when entering.
         # Using the context is not necessary as long as ClientSession.close() 
         # is called.
-        self.session = await ClientSession(
-            headers=self.common_headers).__aenter__()
+        self.session = await ClientSession().__aenter__()
 
         # Although ClientSession.close() may be a coroutine, but it is not
         # necessary to await it as of the time of writing, since it's 
@@ -142,44 +144,57 @@ class WebAPI(AsyncInit):
         '''Closes the http session with the API server. Should be automatic.'''
         self._finalize()
 
-    def _req(self, method: str, path: str, params: Json | None = None, json: Any = None, data: Any = None):
-        return self.session.request(
-            method, f"{self.base_url}{path}",
-            params=convert_url_params(params) | self.common_params,
-            data=data, json=json)
+    def get_full_url(self, path: str) -> str:
+        return self.base_url + path
 
-    async def _req_json(self, method: str, path: str, params: Json | None, json: Any, data: Any) -> Any:
-        async with self._req(
-                method, path,
-                params, json, data) as response:
+    async def _req_json(self, req: Request) -> Any:
+        async with req.send(self.session) as resp:
             try:
-                result = await response.json()
+                result = await resp.json()
             except ContentTypeError:
-                result = await response.text()
-            if response.status != 200:
-                raise await api_err(response, result)
+                result = await resp.text()
+            if resp.status != 200:
+                raise await api_err(resp, result)
             return result
 
-    async def _req_empty(self, method: str, path: str, params: Json | None, json: Any, data: Any) -> None:
-        async with self._req(
-                method, path,
-                params, data, json) as response:
-            if response.status != 204:
-                raise await api_err(response)
+    async def _req_empty(self, req: Request) -> None:
+        async with req.send(self.session) as resp:
+            if resp.status != 204:
+                raise await api_err(resp)
 
-    async def get_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
-            dict[str, Any]:
-        return await self._req_json('GET', path, params, json=json, data=data)
+    async def _call(self, method: Method, path: str, params: Json | None,
+        json: Any, data: Any, headers: dict[str, str] | None = None
+        ) -> dict[str, Any]:
+        full_url = self.get_full_url(path)
+        if json is not None:
+            data_ = json
+            data_is_json = True
+        else:
+            data_ = data
+            data_is_json = False
+        if data_ is None:
+            data_: dict[str, Any] = {}
+        if headers is None:
+            headers = {}
+        req = Request(method, full_url, convert_url_params(params), headers, data_, data_is_json)
+        if self.auth is not None:
+            req = await self.auth.sign_request(self.session, req)
+        return await self._req_json(req)
 
-    async def post_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
-            dict[str, Any]:
-        return await self._req_json('POST', path, params, json=json, data=data)
+    async def get_json(self, path: str, params: Json | None=None, 
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> dict[str, Any]:
+        return await self._call(Method.GET, path, params, json, data, headers)
 
-    async def put_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
-            dict[str, Any]:
-        # self.paginated()
-        # self.paginated()
-        return await self._req_json('PUT', path, params, json=json, data=data)
+    async def post_json(self, path: str, params: Json | None=None, 
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> dict[str, Any]:
+        return await self._call(Method.POST, path, params, json, data, headers)
+
+    async def put_json(self, path: str, params: Json | None=None, 
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> dict[str, Any]:
+        return await self._call(Method.PUT, path, params, json, data, headers)
 
     @AsyncLazy.wrap
     # TODO: google only?
