@@ -103,10 +103,12 @@ class OAuth2(Auth):
         self.user = user
 
     def verify_scope(self, scope: str):
-        if not self.user:
-            raise ValueError("User credentials must be used when scope is specified")
-        if not scope in self.user.scopes:
-            raise ValueError(F"User credentials do not have the scope: {scope}")
+        scopes = scope.split(' ')
+        for scope in scopes:
+            if not self.user:
+                raise ValueError("User credentials must be used when scope is specified")
+            if not scope in self.user.scopes:
+                raise ValueError(F"User credentials do not have the scope: {scope}")
         return True
 
     def get_auth_url(self, redirect_uri: str, state: str, scopes: str) -> tuple[str, str]:
@@ -203,7 +205,6 @@ class OAuth2(Auth):
             if resp.status != 200:
                 raise Exception(f'Grant failed: {resp.status}')
             result = await resp.json()
-            print(F"Step 2 response:\n{result}")
             user = OAuth2User(result)
 
         self.user = user

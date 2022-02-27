@@ -147,7 +147,6 @@ class OAuth1(Auth):
             # oauth_token_secret = resp_params['oauth_token_secret'][0]
             if resp_params['oauth_callback_confirmed'][0] != 'true':
                 raise ValueError(f"oauth_callback_confirmed was not true")
-            print(F"Step 1 response:\n{resp_params}")
 
         # step 2: get the user to authorize the application
         grant_link = F"{self.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
@@ -168,5 +167,4 @@ class OAuth1(Auth):
         }) as resp:
             content = await resp.text()
             resp_params = urllib.parse.parse_qs(content)
-            print(F"Step 3 response:\n{resp_params}")
             self.user = OAuth1User({k: v[0] for k, v in resp_params.items()})
