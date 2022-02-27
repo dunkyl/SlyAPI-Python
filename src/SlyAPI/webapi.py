@@ -68,6 +68,9 @@ class _EnumParams:
             for title, values in self.params.items()
         }
 
+    def __contains__(self, member: 'EnumParam') -> bool:
+        return member.value in self.params[member.get_title()]
+
 
 Self = TypeVar('Self')
 
@@ -83,7 +86,7 @@ class EnumParam(Enum):
 
     def __add__(self: Self, other: 'EnumParam|_EnumParams') -> Self:
         '''Collect with another parameter or set of parameters.'''
-        # return type is compatible with EnumParam for + and to_dict
+        # return type is compatible with EnumParam for + and to_dict and in
         return _EnumParams() + self + other  # type: ignore
 
     def to_dict(self, _delimiter: str = ',') -> dict[str, str]:
@@ -94,6 +97,8 @@ class EnumParam(Enum):
             self.get_title(): self.value
         }
 
+    def __contains__(self, member: 'EnumParam') -> bool:
+        return self.value == member.value
 
 def convert_url_params(p: Json | None) -> dict[str, str]:
     '''Excludes empty-valued parameters'''
