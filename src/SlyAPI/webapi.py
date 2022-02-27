@@ -157,7 +157,9 @@ class WebAPI(AsyncInit):
             if resp.status != 204:
                 raise await api_err(resp)
 
-    async def _call(self, method: Method, path: str, params: Json | None, json: Any, data: Any):
+    async def _call(self, method: Method, path: str, params: Json | None,
+        json: Any, data: Any, headers: dict[str, str] | None = None
+        ) -> dict[str, Any]:
         full_url = self.get_full_url(path)
         if json is not None:
             data_ = json
@@ -167,22 +169,27 @@ class WebAPI(AsyncInit):
             data_is_json = False
         if data_ is None:
             data_: dict[str, Any] = {}
-        req = Request(method, full_url, convert_url_params(params), {}, data_, data_is_json)
+        if headers is None:
+            headers = {}
+        req = Request(method, full_url, convert_url_params(params), headers, data_, data_is_json)
         if self.auth is not None:
             req = await self.auth.sign_request(self.session, req)
         return await self._req_json(req)
 
-    async def get_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
-            dict[str, Any]:
-        return await self._call(Method.GET, path, params, json, data)
+    async def get_json(self, path: str, params: Json | None=None, 
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> dict[str, Any]:
+        return await self._call(Method.GET, path, params, json, data, headers)
 
-    async def post_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
-            dict[str, Any]:
-        return await self._call(Method.POST, path, params, json, data)
+    async def post_json(self, path: str, params: Json | None=None, 
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> dict[str, Any]:
+        return await self._call(Method.POST, path, params, json, data, headers)
 
-    async def put_json(self, path: str, params: Json | None = None, json: Any = None, data: Any = None) -> \
-            dict[str, Any]:
-        return await self._call(Method.PUT, path, params, json, data)
+    async def put_json(self, path: str, params: Json | None=None, 
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> dict[str, Any]:
+        return await self._call(Method.PUT, path, params, json, data, headers)
 
     @AsyncLazy.wrap
     # TODO: google only?
