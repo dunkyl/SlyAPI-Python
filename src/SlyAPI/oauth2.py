@@ -59,12 +59,13 @@ class OAuth2User:
             case _:
                 raise ValueError(F"Invalid OAuth2User source: {source}")
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'token': self.token,
             'refresh_token': self.refresh_token,
             'expires_at': self.expires_at.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
             'token_type': self.token_type,
+            'scopes': self.scopes
         }
 
     def save(self):
