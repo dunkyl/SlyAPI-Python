@@ -1,4 +1,5 @@
 import base64, hmac, secrets
+import json
 from datetime import datetime
 from hashlib import sha1
 from typing import Any
@@ -63,8 +64,12 @@ class OAuth1User:
     key: str
     secret: str
 
-    def __init__(self, source: dict[str, Any]):
+    def __init__(self, source: str | dict[str, Any]):
         match source:
+            case str(): # json file path
+                with open(source) as f:
+                    obj = json.load(f)
+                    self.__dict__ |= OAuth1User(obj).__dict__
             case { 'key': key, 'secret': secret }: # dumps
                 self.key = key
                 self.secret = secret
