@@ -93,8 +93,12 @@ class OAuth1(Auth):
 
     user: OAuth1User | None = None
 
-    def __init__(self, source: dict[str, Any], user: OAuth1User | None = None) -> None:
+    def __init__(self, source: str | dict[str, Any], user: OAuth1User | None = None) -> None:
         match source:
+            case str(): # file path
+                with open(source, 'r') as f:
+                    data = json.load(f)
+                    self.__dict__ |= OAuth1(data).__dict__
             case { 'key': key, 'secret': secret, 'request_uri': request_uri, 'authorize_uri': authorize_uri, 'access_uri': access_uri }: # dumps
                 self.key = key
                 self.secret = secret
