@@ -1,3 +1,5 @@
+
+
 from dataclasses import dataclass
 import weakref
 from copy import deepcopy
@@ -7,7 +9,8 @@ from typing import Any, AsyncGenerator, Generic, TypeVar, cast
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
-from .asyncy import end_loop_workaround, AsyncInit, AsyncLazy
+from .asyncy import end_loop_workaround #type: ignore
+from .asyncy import AsyncInit, AsyncLazy
 from .auth import Auth
 from .web import Request, Method
 
@@ -123,11 +126,11 @@ class WebAPI(AsyncInit):
         self.auth = auth
 
     async def _async_init(self):
-        self._async_ready = True
         # the aiohttp context manager does no asynchronous work when entering.
         # Using the context is not necessary as long as ClientSession.close() 
         # is called.
-        self.session = await ClientSession().__aenter__()
+        session = await ClientSession().__aenter__()
+        self.session = session
 
         # Although ClientSession.close() may be a coroutine, but it is not
         # necessary to await it as of the time of writing, since it's 
@@ -136,7 +139,7 @@ class WebAPI(AsyncInit):
         # this method ensures that the session is closed when the WebAPI object
         # is garbage collected.
         # noinspection PyProtectedMember
-        self._finalize = weakref.finalize(self, self.session._connector._close)  # type: ignore ## reportPrivateUsage
+        self._finalize = weakref.finalize(self, session._connector._close)  # type: ignore ## reportPrivateUsage
 
         end_loop_workaround()
 
@@ -144,7 +147,9 @@ class WebAPI(AsyncInit):
         '''Closes the http session with the API server. Should be automatic.'''
         self._finalize()
 
+    # convert a relative path to an absolute url for this api
     def get_full_url(self, path: str) -> str:
+        '''convert a relative path to an absolute url for this api'''
         return self.base_url + path
 
     async def _req_json(self, req: Request) -> Any:
@@ -202,7 +207,10 @@ class WebAPI(AsyncInit):
                         path: str,
                         params: Json,  # non-const
                         limit: int | None) -> AsyncGenerator[Any, None]:
-        '''Return an awaitable and async iterable over google-style paginated items'''
+        '''
+        Return an awaitable and async iterable over google-style paginated items.
+        You can also await the return value to get the entire list.
+        '''
         result_count = 0
 
         while True:
@@ -222,10 +230,3 @@ class WebAPI(AsyncInit):
             page_token = cast(str, page.get('nextPageToken'))
             if not page_token: break
             params['pageToken'] = page_token
-
-# Endpoint = Callable[[WebAPI, T], Coro[U]]
-
-# def decorator(func: Endpoint[Any, T]) -> Endpoint[Any, T]:
-#     async def wrapper(self: WebAPI, params: Json) -> T:
-#         return await func(self, params)
-#     return wrapper

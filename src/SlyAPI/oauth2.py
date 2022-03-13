@@ -25,8 +25,7 @@ class OAuth2User:
         match source:
             case str(): # file path
                 with open(source, 'r') as f:
-                    data = json.load(f)
-                    self.__dict__ |= OAuth2User(data).__dict__
+                    self.__init__(json.load(f))
                     self.source_path = source
             case {
                 'token': token,
@@ -37,7 +36,7 @@ class OAuth2User:
             }: #dumps
                 self.token = token
                 self.refresh_token = refresh_token
-                self.expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+                self.expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
                 self.token_type = token_type
                 self.source_path = source_path
                 self.scopes = scopes
@@ -48,7 +47,7 @@ class OAuth2User:
                 'token_type': token_type,
                 **others
             }: # OAuth 2 grant response
-                expiry = datetime.utcnow() + timedelta(seconds=int(expires_str))
+                expiry = (datetime.utcnow() + timedelta(seconds=int(expires_str))).replace(microsecond=0)
                 self.token = token
                 self.refresh_token = refresh_token
                 self.expires_at = expiry
@@ -63,7 +62,7 @@ class OAuth2User:
         return {
             'token': self.token,
             'refresh_token': self.refresh_token,
-            'expires_at': self.expires_at.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            'expires_at': self.expires_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
             'token_type': self.token_type,
             'scopes': self.scopes
         }
@@ -91,9 +90,7 @@ class OAuth2(Auth):
         match source:
             case str(): # file path
                 with open(source, 'r') as f:
-                    data = json.load(f)
-                    self.__dict__ |= OAuth2(data).__dict__
-                    # self.source_path = source
+                    self.__init__(json.load(f))
             case { 'id': id_, 'secret': secret, 'auth_uri': auth_uri, 'token_uri': token_uri}: # dumps
                 self.id = id_
                 self.secret = secret

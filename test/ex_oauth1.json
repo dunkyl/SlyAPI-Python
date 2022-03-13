@@ -1,0 +1,7 @@
+{
+    "key": "example_key",
+    "secret": "example_secret",
+    "request_uri": "https://example.com/request_token",
+    "authorize_uri": "https://example.com/authorize",
+    "access_uri": "https://example.com/access_token"
+}

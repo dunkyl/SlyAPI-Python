@@ -68,8 +68,7 @@ class OAuth1User:
         match source:
             case str(): # json file path
                 with open(source) as f:
-                    obj = json.load(f)
-                    self.__dict__ |= OAuth1User(obj).__dict__
+                    self.__init__(json.load(f))
             case { 'key': key, 'secret': secret }: # dumps
                 self.key = key
                 self.secret = secret
@@ -83,6 +82,7 @@ class OAuth1User:
             case _:
                 raise ValueError(F"Invalid OAuth1User source: {source}")
 
+@dataclass
 class OAuth1(Auth):
     key: str
     secret: str
@@ -97,8 +97,7 @@ class OAuth1(Auth):
         match source:
             case str(): # file path
                 with open(source, 'r') as f:
-                    data = json.load(f)
-                    self.__dict__ |= OAuth1(data).__dict__
+                    self.__init__(json.load(f))
             case { 'key': key, 'secret': secret, 'request_uri': request_uri, 'authorize_uri': authorize_uri, 'access_uri': access_uri }: # dumps
                 self.key = key
                 self.secret = secret

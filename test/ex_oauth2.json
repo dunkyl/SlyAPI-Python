@@ -1,0 +1,6 @@
+{
+    "id": "example_client_id",
+    "secret": "example_secret",
+    "token_uri": "https://example.com/request_token",
+    "auth_uri": "https://example.com/authorize"
+}

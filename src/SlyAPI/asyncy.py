@@ -1,3 +1,6 @@
+'''A collection of useful classes and functions for asynchronous programming.
+'''
+
 from abc import ABC, abstractmethod
 import functools
 from typing import Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
@@ -9,11 +12,15 @@ T_Params = ParamSpec("T_Params")
 U_Params = ParamSpec("U_Params")
 
 def end_loop_workaround():
-    # workaround for:
-    # https://github.com/aio-libs/aiohttp/issues/4324#issuecomment-733884349
+    '''Workaround for:
+    https://github.com/aio-libs/aiohttp/issues/4324#issuecomment-733884349
 
-    # Replace the event loop destructor thing with one a wrapper which ignores
-    # this specific exception on windows.
+    Replace the event loop destructor thing with one a wrapper which ignores
+    this specific exception on windows.
+
+    Note:
+        Already called by WebAPI's initializer. You shouldn't have to worry about this.
+    '''
     import sys
     if sys.platform.startswith("win"):
         # noinspection PyProtectedMember
@@ -37,27 +44,39 @@ TSelfAtAsyncClass = TypeVar("TSelfAtAsyncClass", bound="AsyncInit")
 
 
 class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
-    '''
-    Class which depends on some asynchronous initialization.
+    '''Class which depends on some asynchronous initialization.
     To use, override _async_init() to do the actual initialization.
-    Accessing any non-static public attributes before the async initialization is complete will result in an error.
+
+    Note:
+        You should still define a __init__() method to collect parameters for construction.
+
+    Caution:
+        Accessing any non-static public attributes before the async initialization is complete will result in an error.
+
+    Example:
+        .. code::
+
+            class MyAsyncInit(AsyncInit):
+                def __init__(self, param1: str, param2: int):
+                    self.param1 = param1
+                    self.param2 = param2
+
+                async def _async_init(self):
+                    await asyncio.sleep(0.1)
+                    self.param3 = self.param1 + str(self.param2)
+
+            inst = await MyAsyncInit("hello", 42)
     '''
     _async_ready = False
     _async_init_coro: Coroutine[Any, Any, Any] | None = None
 
-    # implementation must initialize the instance
-    # arguments should be already passed to the constructor
-    # and this method must set self._async_ready to True
+    
     @abstractmethod
-    async def _async_init(self): pass
-
-    # not passing args from constructor to _async_init() anymore
-    # both are expected to be implemented in the subclass
-    # def __init__(self, *args: Any, **kwargs: Any):
-    #     if hasattr(self, '_async_init'):
-    #         self._async_init_coro = getattr(self, '_async_init')(*args, **kwargs)
-    #     else:
-    #         raise RuntimeError("AsyncInit class must implement _async_init().")
+    async def _async_init(self):
+        '''Implementation must initialize the instance
+        arguments should be already passed to the constructor.
+        '''
+        pass
 
     def __await__(self: TSelfAtAsyncClass) -> Generator[Any, Any, TSelfAtAsyncClass]:
         async def combined_init() -> TSelfAtAsyncClass:
@@ -65,12 +84,12 @@ class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
             #     raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
             # else:
             await self._async_init()
+            self._async_ready = True
             return self
         return combined_init().__await__()
 
 # protect members from being accessed before async initialization is complete
 def _AsyncInit_get_attr(self: AsyncInit, name: str) -> Any:
-    # name not in ('_async_init_coro', '_async_ready', '__await__')
     # private attributes are allowed to be accessed
     # TODO: consider if all private attributes should be allowed
     # note: order of checks is important
@@ -85,7 +104,10 @@ setattr(AsyncInit, '__getattribute__', _AsyncInit_get_attr)
 
 
 class AsyncLazy(Generic[T]):
-    '''Does not accumulate any results unless awaited.'''
+    '''Does not accumulate any results unless awaited.
+    Awaiting instances will return a list of the results.
+    Can be used as an async iterator.
+    '''
     gen: AsyncGenerator[T, None]
 
     def __init__(self, gen: AsyncGenerator[T, None]):
@@ -101,26 +123,28 @@ class AsyncLazy(Generic[T]):
         return self._items().__await__()
 
     def map(self, f: Callable[[T], U]) -> 'AsyncTrans[U]':
-        return AsyncTrans(self.gen, f)
+        return AsyncTrans(self, f)
 
     @classmethod
     def wrap(cls, fn: Callable[T_Params, AsyncGenerator[T, None]]):
+        '''Convert an async generator async function to return an AsyncLazy instance.'''
         @functools.wraps(fn)
         def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[T]:
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
 
 
-class AsyncTrans(Generic[U], AsyncLazy[Any]):
+class AsyncTrans(Generic[U]):
     '''
-    Does not accumulate any results unless awaited.
-    Transforms the results of the generator using the mapping function.
+    Transforms the results of the AsyncLazy generator using the mapping function.
+    Awaiting instances will return a list of the transformed results.
+    Can be used as an async iterator.
     '''
-    gen: AsyncGenerator[Any, None]
+    gen: AsyncLazy[Any]
     mapping: Callable[[Any], U]
 
-    def __init__(self, gen: AsyncGenerator[Any, None], mapping: Callable[[Any], U]):
-        super().__init__(gen)
+    def __init__(self, gen: AsyncLazy[T], mapping: Callable[[T], U]):
+        self.gen = gen
         self.mapping = mapping
 
     def __aiter__(self):

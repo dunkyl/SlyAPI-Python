@@ -1,0 +1,4 @@
+myst-parser
+furo
+sphinxcontrib-trio
+sphinx-copybutton
