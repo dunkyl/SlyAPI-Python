@@ -41,7 +41,7 @@ autosummary_generate = True
 
 autodoc_default_options = {
     "members": True,
-    "inherited-members": True,
+    "inherited-members": False,
     "private-members": True,
     "show-inheritance": True,
     "undoc-members": True,
@@ -49,8 +49,9 @@ autodoc_default_options = {
     "special-members": "__init__, __await__",
 }
 
+autodoc_member_order = 'bysource'
 autodoc_typehints = "description"
-autodoc_class_signature = "separated"
+# autodoc_class_signature = "separated"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
