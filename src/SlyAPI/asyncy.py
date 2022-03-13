@@ -14,7 +14,8 @@ T_Params = ParamSpec("T_Params")
 U_Params = ParamSpec("U_Params")
 
 class Cooldown:
-    
+    '''Keeps track of whether a certain amount of time has passed.
+    Awaitable.'''
     def __init__(self, *, expiry: datetime | timedelta):
         match expiry:
             case datetime():
@@ -25,6 +26,7 @@ class Cooldown:
                 raise TypeError(f"Expiry must be a datetime or timedelta, not {type(expiry)}")
 
     def poll(self) -> bool:
+        '''Returns whether the cooldown has expired yet.'''
         return self.expiry > datetime.now()
     
     def __await__(self) -> Generator[Any, Any, None]:
@@ -34,6 +36,7 @@ class Cooldown:
         return
 
 class Stopwatch:
+    '''A simple stopwatch.'''
     start_time: datetime | None
     accumulated: timedelta
 
@@ -41,16 +44,30 @@ class Stopwatch:
         self.reset()
 
     def start(self) -> None:
+        '''Begin timing.'''
+        if self.start_time is not None:
+            raise RuntimeError("Stopwatch already started")
         self.start_time = datetime.now()
 
-    def stop(self) -> None:
+    def stop(self) -> timedelta:
+        '''Pause timing and return the current time elapsed.'''
+        if self.start_time is None:
+            raise RuntimeError("Stopwatch not started")
         self.accumulated += datetime.now() - self.start_time
+        self.start_time = None
+        return self.accumulated
 
     def reset(self) -> None:
+        '''Reset the stopwatch to zero and stop it.'''
         self.start_time = None
         self.accumulated = timedelta()
 
     def format(self, include_hours: bool) -> str:
+        '''Return a string representation of the time elapsed.
+        
+        Returns:
+            str like "MM:SS.02", or "HH:MM:SS.02" if `include_hours` is True.
+        '''
         secs = self.accumulated.total_seconds()
         mins = int(secs // 60)
         secs -= mins * 60
@@ -59,6 +76,38 @@ class Stopwatch:
         hours = int(mins // 60)
         mins -= hours * 60
         return F"{hours:02}:{mins:02}:{secs:02.0f}"
+
+    async def wait_until(self, accumulation: timedelta, timeout: timedelta | None = None) -> bool:
+        '''Wait until the accumulated time reaches the specified amount.
+
+        Note:
+            The precision in time of the stopwatch is approximate, it 
+            may return a little late.
+
+        Note:
+            If the stopwatch is paused once or more while waiting,
+            this may wait for much longer than `accumulation`, perhaps
+            even forever.
+
+        Returns:
+            True if the time has reached the specified amount, False if the timeout was reached.
+        '''
+        timeout_expires = \
+            datetime.now() + timeout if timeout is not None \
+                else None
+        while True:
+            # wait at least as long as it would take to reach the target time, if there was no stop()
+            wait_time_left = (accumulation - self.accumulated).total_seconds()
+            expire_time_left = \
+                (timeout_expires - datetime.now()).total_seconds() if timeout_expires is not None \
+                    else wait_time_left
+            await asyncio.sleep(max(0, min(wait_time_left, expire_time_left)))
+            if self.accumulated >= accumulation:
+                return True
+            if timeout_expires is not None and datetime.now() >= timeout_expires:
+                return False
+
+
 
     def __str__(self) -> str:
         s

@@ -34,7 +34,7 @@ for (let desc of descs) {
             let generic_arg = first.children[1].children[0].textContent;
             elem.textContent = `[ ${generic_arg} ]`;
             desc.parentElement.children[0].appendChild(elem);
-        }
+        } // TODO: case for remove RETURN TYPE: None
 
     }
 }
