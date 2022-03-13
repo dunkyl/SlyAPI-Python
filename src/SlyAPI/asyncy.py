@@ -2,6 +2,8 @@
 '''
 
 from abc import ABC, abstractmethod
+import asyncio
+from datetime import datetime, timedelta
 import functools
 from typing import Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
 
@@ -10,6 +12,56 @@ U = TypeVar('U')
 
 T_Params = ParamSpec("T_Params")
 U_Params = ParamSpec("U_Params")
+
+class Cooldown:
+    
+    def __init__(self, *, expiry: datetime | timedelta):
+        match expiry:
+            case datetime():
+                self.expiry = expiry
+            case timedelta():
+                self.expiry = datetime.now() + expiry
+            case _:
+                raise TypeError(f"Expiry must be a datetime or timedelta, not {type(expiry)}")
+
+    def poll(self) -> bool:
+        return self.expiry > datetime.now()
+    
+    def __await__(self) -> Generator[Any, Any, None]:
+        seconds = (self.expiry - datetime.now()).total_seconds()
+        if seconds > 0:
+            yield from asyncio.sleep(seconds)
+        return
+
+class Stopwatch:
+    start_time: datetime | None
+    accumulated: timedelta
+
+    def __init__(self):
+        self.reset()
+
+    def start(self) -> None:
+        self.start_time = datetime.now()
+
+    def stop(self) -> None:
+        self.accumulated += datetime.now() - self.start_time
+
+    def reset(self) -> None:
+        self.start_time = None
+        self.accumulated = timedelta()
+
+    def format(self, include_hours: bool) -> str:
+        secs = self.accumulated.total_seconds()
+        mins = int(secs // 60)
+        secs -= mins * 60
+        if not include_hours:
+            return f"{mins}m {secs:.0f}s"
+        hours = int(mins // 60)
+        mins -= hours * 60
+        return F"{hours:02}:{mins:02}:{secs:02.0f}"
+
+    def __str__(self) -> str:
+        s
 
 def end_loop_workaround():
     '''Workaround for:
