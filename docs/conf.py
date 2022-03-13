@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../src/SlyAPI'))
+sys.path.insert(0, os.path.abspath('../src'))
 
 project = 'SlyAPI for Python'
 copyright = '2022, Dunkyl 🔣🔣'
