@@ -39,6 +39,8 @@ napoleon_use_admonition_for_notes = True
 autoclass_content = "both"
 autosummary_generate = True
 
+myst_heading_anchors = 3
+
 autodoc_default_options = {
     "members": True,
     "inherited-members": False,

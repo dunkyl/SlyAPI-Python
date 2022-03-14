@@ -1,5 +1,7 @@
 # ![sly logo](https://raw.githubusercontent.com/dunkyl/SlyMeta/main/sly%20logo.svg) SlyAPI for Python
 
+<!-- elevator begin -->
+
 > 🚧 **This library is an early work in progress! Breaking changes may be frequent.**
 
 > 🐍 For Python 3.10+
@@ -18,6 +20,8 @@ Meant as a foundation for other libraries more than being used directly. It is u
 * [SlyGmail](https://github.com/dunkyl/SlyPyGmail)
 
 This library does not provide full coverage of OAuth1 or OAuth2, particularly it does not support the device code flow, nor the legacy implicit flow. Since it is intended to interface with 3rd party APIs, it does not implement the password flow.
+
+<!-- elevator end -->
 
 ---
 
