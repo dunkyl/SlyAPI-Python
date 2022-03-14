@@ -121,17 +121,16 @@ class OAuth2(Auth):
             }
         return F"{self.auth_uri}?{urllib.parse.urlencode(params)}", challenge
 
-    async def sign_request(self, session: aiohttp.ClientSession, request: Request, do_user: bool = True) -> Request:
-        if self.user is not None and do_user:
-            if self._refresh_task is not None:
-                await asyncio.wait_for(self._refresh_task, timeout=None)
-            elif datetime.utcnow() > self.user.expires_at:
-                self._refresh_task = asyncio.create_task(self.refresh(session))
-                await self._refresh_task
-                self._refresh_task = None
-            request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
-        else:
-            raise NotImplemented("OAuth request signing without user is not yet implemented.")
+    async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request:
+        if self.user is None:
+            raise NotImplemented("OAuth 2 request signing without user is not yet implemented.")
+        if self._refresh_task is not None:
+            await asyncio.wait_for(self._refresh_task, timeout=None)
+        elif datetime.utcnow() > self.user.expires_at:
+            self._refresh_task = asyncio.create_task(self.refresh(session))
+            await self._refresh_task
+            self._refresh_task = None
+        request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
         return request
 
     async def refresh(self, session: aiohttp.ClientSession):

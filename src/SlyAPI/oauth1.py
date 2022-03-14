@@ -113,10 +113,10 @@ class OAuth1(Auth):
             raise NotImplemented("Client credentials are not refreshable")
         raise NotImplemented("Refresh is not implemented")
 
-    async def sign_request(self, session: aiohttp.ClientSession, request: Request, do_user: bool = True) -> Request:
+    async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request:
         signing_params = _common_oauth_params(self.key)
         user_secret = None
-        if self.user is not None and do_user:
+        if self.user is not None:
             signing_params['oauth_token'] = self.user.key
             user_secret = self.user.secret
 
@@ -146,7 +146,8 @@ class OAuth1(Auth):
             self.request_uri,
             {'oauth_callback': percentEncode(redirect_uri)}
         )
-        signed_request = await self.sign_request(session, request, do_user=False)
+        assert self.user is None
+        signed_request = await self.sign_request(session, request)
         
         async with signed_request.send(session) as resp:
             content = await resp.text()

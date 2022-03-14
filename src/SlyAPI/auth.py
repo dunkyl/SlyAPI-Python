@@ -14,7 +14,7 @@ class Auth(ABC):
     async def refresh(self, session: aiohttp.ClientSession): pass
 
     @abstractmethod
-    async def sign_request(self, session: aiohttp.ClientSession, request: Request, do_user: bool = True) -> Request: pass
+    async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request: pass
 
     @abstractmethod
     async def user_auth_flow(self, redirect_host: str, redirect_port: int, **kwargs: str): pass
@@ -36,7 +36,7 @@ class APIKey(Auth):
 
     async def refresh(self, *args: Any, **kwargs: Any): raise NotImplemented()
 
-    async def sign_request(self, session: aiohttp.ClientSession, request: Request, do_user: bool = True) -> Request:
+    async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request:
         request.query_params |= self.params
         return request
 
