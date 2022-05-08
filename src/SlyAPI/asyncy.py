@@ -110,7 +110,7 @@ class Stopwatch:
 
 
     def __str__(self) -> str:
-        s
+        return self.format(False)
 
 def end_loop_workaround():
     '''Workaround for:

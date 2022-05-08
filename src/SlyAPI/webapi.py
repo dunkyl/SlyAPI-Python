@@ -162,14 +162,21 @@ class WebAPI(AsyncInit):
                 raise await api_err(resp, result)
             return result
 
+    async def _req_text(self, req: Request) -> str:
+        async with req.send(self.session) as resp:
+            result = await resp.text()
+            if resp.status != 200:
+                raise await api_err(resp, result)
+            return result
+
     async def _req_empty(self, req: Request) -> None:
         async with req.send(self.session) as resp:
             if resp.status != 204:
                 raise await api_err(resp)
 
-    async def _call(self, method: Method, path: str, params: Json | None,
+    def _prepare_req(self, method: Method, path: str, params: Json | None,
         json: Any, data: Any, headers: dict[str, str] | None = None
-        ) -> dict[str, Any]:
+        ) -> Request:
         full_url = self.get_full_url(path)
         if json is not None:
             data_ = json
@@ -181,7 +188,12 @@ class WebAPI(AsyncInit):
             data_: dict[str, Any] = {}
         if headers is None:
             headers = {}
-        req = Request(method, full_url, convert_url_params(params), headers, data_, data_is_json)
+        return Request(method, full_url, convert_url_params(params), headers, data_, data_is_json)
+
+    async def _call(self, method: Method, path: str, params: Json | None,
+        json: Any, data: Any, headers: dict[str, str] | None = None
+        ) -> dict[str, Any]:
+        req = self._prepare_req(method, path, params, json, data, headers)
         if self.auth is not None:
             req = await self.auth.sign_request(self.session, req)
         return await self._req_json(req)
@@ -200,6 +212,12 @@ class WebAPI(AsyncInit):
         json: Any=None, data: Any=None, headers: dict[str, str] | None=None
         ) -> dict[str, Any]:
         return await self._call(Method.PUT, path, params, json, data, headers)
+
+    async def get_text(self, path: str, params: Json | None=None,
+        json: Any=None, data: Any=None, headers: dict[str, str] | None=None
+        ) -> str:
+        req = self._prepare_req(Method.GET, path, params, json, data, headers)
+        return await self._req_text(req)
 
     @AsyncLazy.wrap
     # TODO: google only?
