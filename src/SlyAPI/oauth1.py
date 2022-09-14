@@ -34,7 +34,11 @@ def paramString(params: dict[str, Any]) -> str:
 
 # https://datatracker.ietf.org/doc/html/rfc5849#section-3.4.2
 def _hmac_sign(request: Request, signing_params: dict[str, Any], appSecret: str, userSecret: str|None = None) -> str:
-        all_params = request.data | request.query_params | signing_params
+        if not request.data_is_json:
+            all_params = { **request.data }
+        else:
+            all_params = {}
+        all_params |= request.query_params | signing_params
         base = F"{request.method.value.upper()}&{percentEncode(request.url.lower())}&{percentEncode(paramString(all_params))}"
         # NOTE:
         #  2.  An "&" character (ASCII code 38), which MUST be included
@@ -132,7 +136,7 @@ class OAuth1(Auth):
 
         return request
 
-    async def user_auth_flow(self, redirect_host: str, redirect_port: int, **kwargs: str):
+    async def user_auth_flow(self, redirect_host: str, redirect_port: int, usePin: bool, **kwargs: str):
         import webbrowser
         import urllib.parse
 
@@ -144,14 +148,21 @@ class OAuth1(Auth):
         request = Request(
             Method.POST,
             self.request_uri,
-            {'oauth_callback': percentEncode(redirect_uri)}
+            {'oauth_callback': 'oob' if usePin else percentEncode(redirect_uri)}
         )
         assert self.user is None
         signed_request = await self.sign_request(session, request)
         
+        oauth_token = None
         async with signed_request.send(session) as resp:
             content = await resp.text()
             resp_params = urllib.parse.parse_qs(content)
+            if 'oauth_token' not in resp_params:
+                print(F"Response did not provide authorization:\n{content}")
+                print("\nThis is probably because the credentials for the app are invalid.")
+                await session.close()
+                exit(1)
+                # raise ValueError(F"Response did not provide authorization:\n{content}")
             oauth_token = resp_params['oauth_token'][0]
             # oauth_token_secret = resp_params['oauth_token_secret'][0]
             if resp_params['oauth_callback_confirmed'][0] != 'true':
@@ -163,10 +174,15 @@ class OAuth1(Auth):
         webbrowser.open(grant_link, new=1, autoraise=True)
 
         # step 2 (cont.): wait for the user to be redirected with the code
-        query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
+        if usePin:
+            pin = input("Enter the PIN: ")
+            oauth_verifier = pin
 
-        oauth_token = query['oauth_token']
-        oauth_verifier = query['oauth_verifier']
+        else:
+            query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
+
+            oauth_token = query['oauth_token']
+            oauth_verifier = query['oauth_verifier']
 
         # step 3: exchange the code for access token
         # this step does not use the OAuth authorization headers
@@ -177,3 +193,5 @@ class OAuth1(Auth):
             content = await resp.text()
             resp_params = urllib.parse.parse_qs(content)
             self.user = OAuth1User({k: v[0] for k, v in resp_params.items()})
+
+        await session.close()
