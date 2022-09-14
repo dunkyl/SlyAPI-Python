@@ -4,9 +4,6 @@ import sys, json, asyncio
 from .webapi import *
 from .oauth1 import OAuth1
 from .oauth2 import OAuth2
-from .asyncy import end_loop_workaround
-
-end_loop_workaround()
 
 args = sys.argv[1:]
 
@@ -14,7 +11,7 @@ match args:
     case ['oauth1-flow', app_file, user_file]:
         app = OAuth1(json.load(open(app_file, 'r')))
         asyncio.run(
-            app.user_auth_flow('127.0.0.1', 8080))
+            app.user_auth_flow('127.0.0.1', 8080, True))
         with open(user_file, 'w') as f:
             json.dump(asdict(app.user), f, indent=4)
     case ['oauth2-flow', app_file, user_file, *scopes]:

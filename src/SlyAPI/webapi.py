@@ -1,16 +1,11 @@
-
-
 from dataclasses import dataclass
-import weakref
-from copy import deepcopy
 from enum import Enum
 from typing import Any, AsyncGenerator, Generic, TypeVar, cast
 
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
-from .asyncy import end_loop_workaround #type: ignore
-from .asyncy import AsyncInit, AsyncLazy
+from .asyncy import AsyncInit, AsyncLazy, run_sync_ensured
 from .auth import Auth
 from .web import Request, Method
 
@@ -36,72 +31,35 @@ async def api_err(response: ClientResponse, result: Any = None) -> APIError:
         case _:
             return APIError(response.status, await response.text())
 
-
-class _EnumParams:
-    '''
-        Emulate an EnumParam for serialization into URL params.
-        Separate class and hidden since Enum's have special behavior.
-    '''
-    params: dict[str, set[str]]
-
-    def __init__(self):
-        self.params = {}
-
-    def __add__(self, other: 'EnumParam|_EnumParams') -> 'EnumParam':
-        new_instance = deepcopy(self)
-        match other:
-            case EnumParam():
-                other_items = [(other.get_title(), {other.value})]
-            case _EnumParams():
-                other_items = other.params.items()
-            case _:
-                raise
-        for k, v in other_items:
-            if k not in new_instance.params:
-                new_instance.params[k] = set()
-            new_instance.params[k] |= v
-        return cast(EnumParam, new_instance)
-
-    def to_dict(self, delimiter: str = ',') -> dict[str, str]:
-        '''
-            Convert packed parameters to a dictionary for use in a URL.
-        '''
-        return {
-            title: delimiter.join(values)
-            for title, values in self.params.items()
-        }
-
-    def __contains__(self, member: 'EnumParam') -> bool:
-        return member.value in self.params[member.get_title()]
-
-
 Self = TypeVar('Self')
 
-
 class EnumParam(Enum):
-    '''
-        Collection of API url parameters which have only specific values.
-        Serializes to a dictionary for use in a URL.
-    '''
+    '''Enum for use as a parameter in a request, with utitily for aggregating multiple values.'''
+    _values: dict[str, set[str]]
 
-    def get_title(self) -> str:
-        return self.__class__.__name__[0].lower() + self.__class__.__name__[1:]
+    @property
+    def values(self) -> dict[str, set[str]]:
+        if not hasattr(self, '_values'):
+            self._values = { self.get_title(): {self.value, } }
+        return self._values
 
-    def __add__(self: Self, other: 'EnumParam|_EnumParams') -> Self:
-        '''Collect with another parameter or set of parameters.'''
-        # return type is compatible with EnumParam for + and to_dict and in
-        return _EnumParams() + self + other  # type: ignore
+    def __add__(self, other: 'EnumParam') -> 'EnumParam':
+        inst = self.__class__(self.value)
+        inst.values[other.get_title()].add(other.value)
+        return inst
 
-    def to_dict(self, _delimiter: str = ',') -> dict[str, str]:
-        '''
-            Convert packed parameters to a dictionary for use in a URL.
-        '''
+    def __contains__(self, other: 'EnumParam') -> bool:
+        return other.value in self.values.get(other.get_title(), {})
+
+    @classmethod
+    def get_title(cls) -> str:
+        return cls.__name__[0].lower() + cls.__name__[1:]
+
+    def to_dict(self, delimiter: str = ',') -> dict[str, str]:
         return {
-            self.get_title(): self.value
+            title: delimiter.join(setvals)
+            for title, setvals in self.values.items()
         }
-
-    def __contains__(self, member: 'EnumParam') -> bool:
-        return self.value == member.value
 
 def convert_url_params(p: Json | None) -> dict[str, str]:
     '''Excludes empty-valued parameters'''
@@ -118,34 +76,16 @@ class APIObj(Generic[T]):
 
 class WebAPI(AsyncInit):
     base_url: str
-    session: ClientSession
+    _session: ClientSession
     auth: Auth | None
 
-    def __init__(self, auth: Auth | None = None):
-        
+    async def __init__(self, auth:Auth|None=None) -> None:
         self.auth = auth
+        self._session = await ClientSession().__aenter__()
 
-    async def _async_init(self):
-        # the aiohttp context manager does no asynchronous work when entering.
-        # Using the context is not necessary as long as ClientSession.close() 
-        # is called.
-        session = await ClientSession().__aenter__()
-        self.session = session
-
-        # Although ClientSession.close() may be a coroutine, but it is not
-        # necessary to await it as of the time of writing, since it's 
-        # connector objects delegate their own coroutine close() methods to 
-        # only synchronous methods.
-        # this method ensures that the session is closed when the WebAPI object
-        # is garbage collected.
-        # noinspection PyProtectedMember
-        self._finalize = weakref.finalize(self, session._connector._close)  # type: ignore ## reportPrivateUsage
-
-        end_loop_workaround()
-
-    def close(self):
-        '''Closes the http session with the API server. Should be automatic.'''
-        self._finalize()
+    def __del__(self):
+        if hasattr(self, '_session'):
+            run_sync_ensured(self._session.close())
 
     # convert a relative path to an absolute url for this api
     def get_full_url(self, path: str) -> str:
@@ -153,24 +93,24 @@ class WebAPI(AsyncInit):
         return self.base_url + path
 
     async def _req_json(self, req: Request) -> Any:
-        async with req.send(self.session) as resp:
+        async with req.send(self._session) as resp:
             try:
                 result = await resp.json()
             except ContentTypeError:
                 result = await resp.text()
-            if resp.status != 200:
+            if resp.status >= 300 or resp.status < 200:
                 raise await api_err(resp, result)
             return result
 
     async def _req_text(self, req: Request) -> str:
-        async with req.send(self.session) as resp:
+        async with req.send(self._session) as resp:
             result = await resp.text()
             if resp.status != 200:
                 raise await api_err(resp, result)
             return result
 
     async def _req_empty(self, req: Request) -> None:
-        async with req.send(self.session) as resp:
+        async with req.send(self._session) as resp:
             if resp.status != 204:
                 raise await api_err(resp)
 
@@ -195,7 +135,7 @@ class WebAPI(AsyncInit):
         ) -> dict[str, Any]:
         req = self._prepare_req(method, path, params, json, data, headers)
         if self.auth is not None:
-            req = await self.auth.sign_request(self.session, req)
+            req = await self.auth.sign_request(self._session, req)
         return await self._req_json(req)
 
     async def get_json(self, path: str, params: Json | None=None, 

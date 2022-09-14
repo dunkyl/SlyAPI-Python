@@ -1,11 +1,11 @@
-'''A collection of useful classes and functions for asynchronous programming.
-'''
-
+'''Useful classes and functions for asynchronous programming.'''
 from abc import ABC, abstractmethod
 import asyncio
 from datetime import datetime, timedelta
 import functools
-from typing import Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+import traceback
+from typing import Awaitable, Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+import warnings
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -77,7 +77,7 @@ class Stopwatch:
         mins -= hours * 60
         return F"{hours:02}:{mins:02}:{secs:02.0f}"
 
-    async def wait_until(self, accumulation: timedelta, timeout: timedelta | None = None) -> bool:
+    async def wait_until(self, target_elapsed: timedelta, timeout: timedelta | None = None) -> bool:
         '''Wait until the accumulated time reaches the specified amount.
 
         Note:
@@ -97,12 +97,12 @@ class Stopwatch:
                 else None
         while True:
             # wait at least as long as it would take to reach the target time, if there was no stop()
-            wait_time_left = (accumulation - self.accumulated).total_seconds()
+            wait_time_left = (target_elapsed - self.accumulated).total_seconds()
             expire_time_left = \
                 (timeout_expires - datetime.now()).total_seconds() if timeout_expires is not None \
                     else wait_time_left
             await asyncio.sleep(max(0, min(wait_time_left, expire_time_left)))
-            if self.accumulated >= accumulation:
+            if self.accumulated >= target_elapsed:
                 return True
             if timeout_expires is not None and datetime.now() >= timeout_expires:
                 return False
@@ -112,102 +112,92 @@ class Stopwatch:
     def __str__(self) -> str:
         return self.format(False)
 
-def end_loop_workaround():
-    '''Workaround for:
-    https://github.com/aio-libs/aiohttp/issues/4324#issuecomment-733884349
-
-    Replace the event loop destructor thing with one a wrapper which ignores
-    this specific exception on windows.
-
-    Note:
-        Already called by WebAPI's initializer. You shouldn't have to worry about this.
-    '''
-    import sys
-    if sys.platform.startswith("win"):
-        # noinspection PyProtectedMember
-        from asyncio.proactor_events import _ProactorBasePipeTransport  # type: ignore
-
-        base_del = _ProactorBasePipeTransport.__del__
-        if not hasattr(base_del, '_once'):
-            def quiet_delete(*args, **kwargs):  # type: ignore
-                try:
-                    return base_del(*args, **kwargs)  # type: ignore
-                except RuntimeError as e:
-                    if str(e) != 'Event loop is closed':
-                        raise
-
-            quiet_delete._once = True  # type: ignore
-
-            _ProactorBasePipeTransport.__del__ = quiet_delete
-
-
 TSelfAtAsyncClass = TypeVar("TSelfAtAsyncClass", bound="AsyncInit")
+TAsyncInitClass = TypeVar("TAsyncInitClass", bound="AsyncInit")
 
+
+class PendingInit(Generic[TAsyncInitClass]):
+    '''Temporary value to hold an AsyncInit instance until it is awaited.'''
+    _async_uinit_inst: TAsyncInitClass
+    _was_awaited: bool = False
+
+    def __init__(self, uninit_inst: TAsyncInitClass, args, kwargs):
+        self._async_uinit_inst = uninit_inst
+        stackframe = traceback.extract_stack()[-3]
+        self._construction_site = (stackframe.filename, stackframe.lineno or 0)
+        self._init_args = args
+        self._init_kwargs = kwargs
+
+    def __await__(self) -> Generator[Any, Any, TAsyncInitClass]:
+        self._was_awaited = True
+        return self._init_and_return_inst().__await__()
+
+    async def _init_and_return_inst(self) -> TAsyncInitClass:
+        await self._async_uinit_inst.__init__(*self._init_args, **self._init_kwargs)
+        return self._async_uinit_inst
+
+    def __getattribute__(self, item: str) -> Any:
+        if not item.startswith('_'):
+            raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
+        return super().__getattribute__(item)
+
+    def __del__(self):
+        if not self._was_awaited:
+            offendingName = self._async_uinit_inst.__class__.__name__
+            warnings.warn_explicit(
+                F"AsyncInit class {offendingName}'s construction was never awaited!",
+                RuntimeWarning,
+                *self._construction_site
+            )
+
+def run_sync_ensured(coro: Coroutine[Any, None, None]) -> None:
+    '''Run a coroutine, regardless of whether it is already running in an event loop.'''
+    try:
+        event_loop = asyncio.get_running_loop()
+        asyncio.create_task(coro)
+    except RuntimeError:
+        event_loop = asyncio.new_event_loop()
+        event_loop.run_until_complete(coro)
 
 class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
     '''Class which depends on some asynchronous initialization.
-    To use, override _async_init() to do the actual initialization.
+    Subclass AsyncInit and define an __init__ method which is async.
 
     Note:
-        You should still define a __init__() method to collect parameters for construction.
+        Some analysis tools will show a type error unless __init__ is annotated with an explicit return type of `None`.
 
     Caution:
         Accessing any non-static public attributes before the async initialization is complete will result in an error.
 
     Example:
-        .. code::
+        class MyAsyncInit(AsyncInit):
+            async def __init__(self, param1):
+                self.easy_value = param1
+                # do some async stuff
+                await asyncio.sleep(0.1)
+                self.hard_value = "this took a while to retrive"
 
-            class MyAsyncInit(AsyncInit):
-                def __init__(self, param1: str, param2: int):
-                    self.param1 = param1
-                    self.param2 = param2
-
-                async def _async_init(self):
-                    await asyncio.sleep(0.1)
-                    self.param3 = self.param1 + str(self.param2)
-
-            inst = await MyAsyncInit("hello", 42)
+        inst = await MyAsyncInit(42)
     '''
-    _async_ready = False
-    _async_init_coro: Coroutine[Any, Any, Any] | None = None
-
     
     @abstractmethod
-    async def _async_init(self):
-        '''Implementation must initialize the instance
-        arguments should be already passed to the constructor.
-        '''
-        pass
+    async def __init__(self, *args, **kwargs) -> None: pass
+
+    def __new__(cls: type[TSelfAtAsyncClass], *args, **kwargs) -> Awaitable[TSelfAtAsyncClass]:
+        inst = object.__new__(cls)
+        
+        if not asyncio.iscoroutinefunction(cls.__init__):
+            warnings.warn(F"{cls.__name__}.__init__ should be async.", RuntimeWarning, 2)
+
+        return PendingInit(inst, args, kwargs)
 
     def __await__(self: TSelfAtAsyncClass) -> Generator[Any, Any, TSelfAtAsyncClass]:
-        async def combined_init() -> TSelfAtAsyncClass:
-            # if self._async_init_coro is None:
-            #     raise RuntimeError("Expected AsyncInit subclass to set an initialization coroutine.")
-            # else:
-            await self._async_init()
-            self._async_ready = True
-            return self
-        return combined_init().__await__()
-
-# protect members from being accessed before async initialization is complete
-def _AsyncInit_get_attr(self: AsyncInit, name: str) -> Any:
-    # private attributes are allowed to be accessed
-    # TODO: consider if all private attributes should be allowed
-    # note: order of checks is important
-    if not name.startswith('_') and not self._async_ready: # type: ignore
-        raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
-    else:
-        return object.__getattribute__(self, name)
-# workaround to preserve type checks for accessing undefined methods
-# Pylance, at least, will presume __getattribute__ will succeed and
-# not raise an AttributeError
-setattr(AsyncInit, '__getattribute__', _AsyncInit_get_attr)
-
+        raise NotImplemented()
 
 class AsyncLazy(Generic[T]):
-    '''Does not accumulate any results unless awaited.
+    '''
+    Async iterator which does not accumulate any results unless awaited.
     Awaiting instances will return a list of the results.
-    Can be used as an async iterator.
     '''
     gen: AsyncGenerator[T, None]
 
@@ -237,7 +227,7 @@ class AsyncLazy(Generic[T]):
 
 class AsyncTrans(Generic[U]):
     '''
-    Transforms the results of the AsyncLazy generator using the mapping function.
+    Transforms the results of the AsyncLazy generator using the provided mapping function.
     Awaiting instances will return a list of the transformed results.
     Can be used as an async iterator.
     '''

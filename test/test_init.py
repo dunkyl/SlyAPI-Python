@@ -1,18 +1,17 @@
+import warnings
 from SlyAPI import *
 
-class TestAPI(WebAPI):
+class _TestAPI(WebAPI):
 
-    def __init__(self):
-        super().__init__()
-        self.attr_initialized_after_await = None
+    attr_initialized_after_await = None
 
-    async def _async_init(self):
-        await super()._async_init()
+    async def __init__(self):
+        await super().__init__()
         self.attr_initialized_after_await = 1
 
 async def test_error_uninitialized():
 
-    api_unawaited = TestAPI()
+    api_unawaited = _TestAPI()
 
     error = None
 
@@ -26,3 +25,13 @@ async def test_error_uninitialized():
     api_awaited = await api_unawaited
 
     print( api_awaited.attr_initialized_after_await )
+
+async def test_warn_not_awaited():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        _TestAPI()
+
+        assert len(w) == 1
+        assert issubclass(w[-1].category, RuntimeWarning)
+        assert "AsyncInit" in str(w[-1].message)

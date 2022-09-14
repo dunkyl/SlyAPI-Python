@@ -181,6 +181,7 @@ class OAuth2(Auth):
         # step 1 (cont.): wait for the user to be redirected with the code
         query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
 
+        # TODO: challenge is state[-54:], state is state[:-54]
         if 'state' not in query:
             raise PermissionError("Redirect did not return any state parameter.")
         if not query['state'] == challenge:
