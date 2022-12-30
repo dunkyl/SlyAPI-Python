@@ -31,6 +31,7 @@ async def test_warn_not_awaited():
         warnings.simplefilter("always")
 
         _TestAPI()
+        # gc'd before awaited
 
         assert len(w) == 1
         assert issubclass(w[-1].category, RuntimeWarning)

@@ -156,8 +156,11 @@ def run_sync_ensured(coro: Coroutine[Any, None, None]) -> None:
         event_loop = asyncio.get_running_loop()
         asyncio.create_task(coro)
     except RuntimeError:
-        event_loop = asyncio.new_event_loop()
-        event_loop.run_until_complete(coro)
+        try:
+            asyncio.run(coro)
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            event_loop.run_until_complete(coro)
 
 class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
     '''Class which depends on some asynchronous initialization.

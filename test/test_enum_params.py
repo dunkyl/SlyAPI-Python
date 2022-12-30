@@ -1,4 +1,5 @@
 from SlyAPI import *
+from SlyAPI.webapi import combine_params
 
 class Scope(EnumParam):
     READONLY     = "test.readonly"
@@ -6,7 +7,7 @@ class Scope(EnumParam):
 
 def test_to_dict():
     param = Scope.READONLY
-    assert param.to_dict() == { 'scope': 'test.readonly' }
+    assert combine_params(param) == { 'scope': 'test.readonly' }
 
 # def test_str():
 #     param = Scope.READONLY
@@ -20,3 +21,14 @@ def test_in():
     param += Scope.MEMBERS
     assert Scope.READONLY in param
     assert Scope.MEMBERS in param
+
+def test_eq():
+    param = Scope.READONLY
+    assert param == Scope.READONLY
+    assert param != Scope.MEMBERS
+
+    param += Scope.MEMBERS
+    assert param != Scope.READONLY
+    assert param != Scope.MEMBERS
+
+    assert param == (Scope.READONLY + Scope.MEMBERS)
