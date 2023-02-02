@@ -9,13 +9,13 @@ args = sys.argv[1:]
 
 match args:
     case ['oauth1-flow', app_file, out_file]:
-        app = OAuth1(json.load(open(app_file, 'r')))
+        app = OAuth1(json.load(open(app_file, 'rb')))
         asyncio.run(
             app.user_auth_flow('127.0.0.1', 8080, True))
         with open(out_file, 'w') as f:
             json.dump(asdict(app.user), f, indent=4)
     case ['oauth2-flow', app_file, out_file, *scopes]:
-        app = OAuth2(json.load(open(app_file, 'r')))
+        app = OAuth2(json.load(open(app_file, 'rb')))
         scopes = ' '.join(scopes)
         asyncio.run(
             app.user_auth_flow('localhost', 8080, scopes=scopes))
