@@ -61,9 +61,10 @@ class OAuth2User:
                 if 'refresh_token' in source:
                     self.refresh_token = source['refresh_token']
                 else:
+                    print(source)
                     self.refresh_token = ""
                     warn(
-                        "Google doesn't re-issue refresh tokens when you authorize a new topen from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
+                        "Google doesn't re-issue refresh tokens when you authorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
                     )
                 self.expires_at = expiry
                 self.token_type = token_type
@@ -143,7 +144,8 @@ class OAuth2(Auth):
             'code_challenge': code_challenge,
             'code_challenge_method': 'S256',
             'scope': scopes,
-            # 'access_type': 'offline'
+            'access_type': 'offline',
+            'prompt': 'consent', # re-issue refresh tokens!
             }
             # 
         return F"{self.auth_uri}?{urllib.parse.urlencode(params)}", code_verifier, state_challenge
@@ -194,6 +196,7 @@ class OAuth2(Auth):
          
     async def user_auth_flow(self, redirect_host: str, redirect_port: int, **kwargs: str):
         import webbrowser
+        import os
 
         redirect_uri = F'http://{redirect_host}:{redirect_port}'
 
@@ -202,19 +205,25 @@ class OAuth2(Auth):
         # step 1: get the user to authorize the application
         grant_link, verifier, state = self.get_auth_url(redirect_uri, '', scopes)
 
-        webbrowser.open(grant_link, new=1, autoraise=True)
-        print(grant_link)
+        if not webbrowser.open(grant_link, new=1, autoraise=True):
+            print("Please open the following link in your browser:")
+            print(grant_link)
+            print("Then enter the code below:")
+            code = input("code")
+        else:
+            # step 1 (cont.): wait for the user to be redirected with the code
+            html = open(os.path.join(os.path.dirname(__file__), 'step2.html'), 'r').read()
+            query = await serve_one_request(redirect_host, redirect_port, html)
 
-        # step 1 (cont.): wait for the user to be redirected with the code
-        query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
-
-        # challenge is state[-54:], but state is explicitly ''
-        # BUT 54 is LENGTH IN BYTES OF RAW CHALLENGE, *NOT* the length of the base64-encoded challenge
-        if 'state' not in query:
-            raise PermissionError("Redirect did not return any state parameter.")
-        if not query['state'] == state:
-            raise PermissionError("Redirect did not return the correct state parameter.")
-        code = query['code']
+            # challenge is state[-54:], but state is explicitly ''
+            # BUT 54 is LENGTH IN BYTES OF RAW CHALLENGE, *NOT* the length of the base64-encoded challenge
+            if 'state' not in query:
+                raise PermissionError("Redirect did not return any state parameter.")
+            elif query['state'] != state:
+                raise PermissionError("Redirect did not return the correct state parameter.")
+            elif 'code' not in query:
+                raise PermissionError("Redirect did authorize grant.")
+            code = query['code']
 
         # step 2: exchange the code for access token
         grant_data = {
