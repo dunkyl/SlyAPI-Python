@@ -1,3 +1,4 @@
+import collections.abc
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, AsyncGenerator, Generic, TypeVar, cast
