@@ -97,7 +97,7 @@ class OAuth2(Auth):
     secret: str
 
     auth_uri: str # flow step 1
-    token_uri: str # flow step 2
+    token_uri: str # flow step 3
 
     user: OAuth2User | None = None
 
@@ -212,7 +212,7 @@ class OAuth2(Auth):
             print("Then enter the code below:")
             code = input("code")
         else:
-            # step 1 (cont.): wait for the user to be redirected with the code
+            # step 2: wait for the user to be redirected with the code
             html = open(os.path.join(os.path.dirname(__file__), 'step2.html'), 'r').read()
             query = await serve_one_request(redirect_host, redirect_port, html)
 
@@ -226,7 +226,7 @@ class OAuth2(Auth):
                 raise PermissionError("Redirect did authorize grant.")
             code = query['code']
 
-        # step 2: exchange the code for access token
+        # step 3: exchange the code for access token
         grant_data = {
             'grant_type': 'authorization_code',
             'code': code,

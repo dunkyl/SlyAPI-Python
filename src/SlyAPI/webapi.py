@@ -1,17 +1,16 @@
-import collections.abc
-from dataclasses import dataclass
 from enum import Enum
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Generic, TypeVar, cast
 
 from aiohttp import ClientSession, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
-from .asyncy import AsyncInit, AsyncLazy, run_sync_ensured
+from .asyncy import AsyncLazy, run_sync_ensured
 from .auth import Auth
 from .web import Request, Method
 
 Json = int | float | bool | str | None | list['Json'] | dict[str, 'Json']
-JsonObj = dict[str, Json]
+JsonObj = dict[str, Json] | dict[str, str]
 
 class APIError(Exception):
     status: int
@@ -33,48 +32,6 @@ async def api_err(response: ClientResponse, result: Any = None) -> APIError:
         case _:
             return APIError(response.status, await response.text())
 
-Self = TypeVar('Self', bound='EnumParam')
-
-class EnumParam(Enum):
-    '''Enum for use as a parameter in a request, with utitily for aggregating multiple values.'''
-    _values: set[str]
-
-    @property
-    def values(self) -> set[str]:
-        if not hasattr(self, '_values'):
-            self._values = { self.value, }
-        return self._values
-
-    def __add__(self: Self, other: Self) -> Self:
-        inst = self.__class__(self.value)
-        inst.values.add(other.value)
-        return inst
-
-    def __eq__(self, other: 'EnumParam') -> bool:
-        return self._values == other._values
-
-    def __contains__(self: Self, other: Self) -> bool:
-        return other.value in self.values
-
-    @classmethod
-    def get_title(cls) -> str:
-        return cls.__name__[0].lower() + cls.__name__[1:]
-
-    # def to_dict(self, delimiter: str = ',') -> dict[str, str]:
-    #     return {
-    #         self.get_title(): delimiter.join(self.values)
-    #     }
-
-def combine_params(*params: EnumParam, delimiter=',') -> JsonObj:
-    '''Combines multiple EnumParams into a single dict'''
-    results: dict[str, set[str]] = {}
-    for param in params:
-        title = param.get_title()
-        results[title] = results.get(title, set()).union(param.values)
-    return {
-        k: delimiter.join(v) for k, v in results.items()
-    }
-
 def convert_url_params(p: JsonObj | None) -> dict[str, str]:
     '''Excludes empty-valued parameters'''
     if p is None: return {}
@@ -88,14 +45,14 @@ class APIObj(Generic[T]):
     def __init__(self, service: T):
         self._service = service
 
-class WebAPI(AsyncInit):
+class WebAPI():
     base_url: str
     _session: ClientSession
     auth: Auth | None
 
-    async def __init__(self, auth:Auth|None=None) -> None:
+    def __init__(self, auth:Auth|None=None) -> None:
         self.auth = auth
-        self._session = await ClientSession().__aenter__()
+        self._session = ClientSession()
 
     def __del__(self):
         if hasattr(self, '_session'):
