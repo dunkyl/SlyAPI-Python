@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+ - `WebAPI` is no longer AsyncInit, and should not be awaited
+
 ### Added
  - Google flavor app/client JSON files can now be used to create `OAuth2`
  - Success local flow page styling, light/dark
