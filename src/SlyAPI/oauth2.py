@@ -16,9 +16,10 @@ import aiohttp, aiohttp.web
 
 import urllib.parse
 
-def requires_scopes(*scopes: str):
+# mark a endpoint as requiring specific scopes to be used
+def requires_scopes(*_scopes: str):
     def decorator(func):
-        # func.__scopes__ = scopes
+        # func._scopes = scopes
         return func
     return decorator
 
@@ -127,7 +128,7 @@ class OAuth2(Auth):
         for scope in scopes:
             if not self.user:
                 raise ValueError("User credentials must be used when scope is specified")
-            if not scope in self.user.scopes:
+            if scope not in self.user.scopes:
                 raise ValueError(F"User credentials do not have the scope: {scope}")
         return True
 
@@ -152,7 +153,7 @@ class OAuth2(Auth):
 
     async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request:
         if self.user is None:
-            raise NotImplemented("OAuth 2 request signing without user is not yet implemented.")
+            raise NotImplementedError("OAuth 2 request signing without user is not yet implemented.")
         if self._refresh_task is not None:
             await asyncio.wait_for(self._refresh_task, timeout=None)
         elif datetime.utcnow() > self.user.expires_at:
@@ -165,7 +166,7 @@ class OAuth2(Auth):
 
     async def refresh(self, session: aiohttp.ClientSession):
         if self.user is None:
-            raise NotImplemented("Refresh without user is not implemented.")
+            raise NotImplementedError("Refresh without user is not implemented.")
         data = {
             'grant_type': 'refresh_token',
             'refresh_token': self.user.refresh_token,
@@ -176,7 +177,7 @@ class OAuth2(Auth):
 
         async with session.post(self.token_uri, data=data, headers=headers) as resp:
             if resp.status != 200:
-                raise Exception(f'Refresh failed: {resp.status}')
+                raise RuntimeError(f'Refresh failed: {resp.status}')
             result = await resp.json()
 
         match result:
@@ -243,7 +244,7 @@ class OAuth2(Auth):
         async with aiohttp.request('POST', self.token_uri, data=grant_data, headers=grant_headers) as resp:
             if resp.status != 200:
                 print(await resp.text())
-                raise Exception(f'Grant failed: {resp.status}')
+                raise RuntimeError(f'Grant failed: {resp.status}')
             result = await resp.json()
             user = OAuth2User(result)
 
