@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 from SlyAPI import *
 
 class Mode(Enum):
@@ -12,7 +13,7 @@ class Units(Enum):
     IMPERIAL = 'imperial'
 
 class City:
-    def __init__(self, src):
+    def __init__(self, src: dict[str, Any]):
         self.name = src['name']
         self.description = src['weather']['description']
         self.temperature = src['main']['temp']

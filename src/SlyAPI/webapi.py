@@ -8,15 +8,6 @@ from .asyncy import AsyncLazy, run_sync_ensured
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
-
-# T = TypeVar('T')
-# @dataclass
-# class APIObj(Generic[T]):
-#     _service: T
-
-#     def __init__(self, service: T):
-#         self._service = service
-
 class WebAPI():
     _client: Client
     _parameter_list_delimiter: str = ','
@@ -132,7 +123,7 @@ class WebAPI():
         You can also await the return value to get the entire list.
         '''
         result_count = 0
-        params = params.copy() if params else {}
+        params = dict(params) if params else {}
 
         while True:
             page = await self.get_json(path, params)
