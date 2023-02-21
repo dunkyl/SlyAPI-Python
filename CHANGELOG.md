@@ -3,11 +3,22 @@
 ## [Unreleased]
 
 ### Changed
- - `WebAPI` is no longer AsyncInit, and should not be awaited
+- `WebAPI` is no longer AsyncInit, and should not be awaited
+- `APIKey` renamed to `UrlApiKey`, `APIError` to `ApiError`
+- `Auth.sign_request` renamed to `Auth.sign`
+- `WebAPI` now requires an `Auth` object, not None
+    - use `Auth.none()` for no auth
 
 ### Added
- - Google flavor app/client JSON files can now be used to create `OAuth2`
- - Success local flow page styling, light/dark
+- Google flavor app/client JSON files can now be used to create `OAuth2`
+- Success local flow page styling, light/dark
+- `HeaderApiKey` for adding API keys to the `Authorization` header, or any other header
+- `WebAPI._parameter_list_delimiter` for serialization. Only applies to URL parameters.
+- `NoAuth` implementation of `Auth`
 
 ### Removed
- - `EnumParam`, `EnumParams` types. Instead, use `set[str]` or `set[T]` where `T` is an enum type.
+- `EnumParam`, `EnumParams` types. Instead, use `set[str]` or `set[T]` where `T` is an enum type.
+    - Make sure to convert any sets or lists to strings with the appropriate delimter for whichever API you are using.
+    - Alternatively, set `WebAPI._parameter_list_delimiter` to the appropriate delimiter for your API.
+- `APIObj` did not provide much value as a base class, and could make usage less clear.
+- `Auth.refresh` and `Auth.flow`, which could not be implemented by many authorization schemes.

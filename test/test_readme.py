@@ -8,7 +8,7 @@ class Mode(Enum):
 
 class Units(Enum):
     STANDARD = 'standard' # Kelvin
-    METRIC = 'metric'
+    METRIC   = 'metric'
     IMPERIAL = 'imperial'
 
 class City:
@@ -21,21 +21,19 @@ class City:
 class OpenWeather(WebAPI):
     base_url = 'https://api.openweathermap.org/data/2.5'
 
-    async def __init__(self, api_key: str):
-        await super().__init__(APIKey('appid', api_key))
+    def __init__(self, api_key: str):
+        super().__init__(APIKey('appid', api_key))
 
     async def city(self,  location: str, mode: Mode=Mode.JSON,
             units: Units=Units.STANDARD,
             lang: str|None = None) -> City:
-        '''
-            Get the current weather of a city.
-            Location format: `City,State,Country`
-            where State and Country are ISO3166 codes.
-        '''
+        '''Get the current weather of a city.
+           Location format: `City,State,Country`
+           where State and Country are ISO3166 codes. '''
         params = {
             'q': location,
             'lang': lang,
-            'units': units.value,
-            'mode': mode.value,
+            'units': units,
+            'mode': mode,
         }
         return City(await self.get_json('/weather', params))

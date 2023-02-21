@@ -16,11 +16,10 @@ import aiohttp, aiohttp.web
 
 import urllib.parse
 
-# mark a endpoint as requiring specific scopes to be used
+# currently just a marker and has no effect
 def requires_scopes(*_scopes: str):
-    def decorator(func):
-        # func._scopes = scopes
-        return func
+    'mark a endpoint as requiring specific scopes to be used'
+    def decorator(func): return func
     return decorator
 
 @dataclass

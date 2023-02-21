@@ -1,10 +1,28 @@
 import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, cast
 
-import aiohttp
-import aiohttp.web
+from aiohttp import ClientSession as Session, ClientResponse as Response
+
+ParamType = int | str | Enum | list['ParamType'] | set['ParamType']|None
+ParamsDict = dict[str, ParamType]|None
+
+JsonType = int | float | bool | str | None | list['JsonType'] | dict[str, 'JsonType']
+JsonMap = dict[str, JsonType]
+
+class ApiError(Exception):
+    status: int
+    reason: str|None
+    response: Response|None
+
+    def __init__(self, status: int, reason: str|None, response: Response|None):
+        super().__init__()
+        self.status = status
+        self.reason = reason
+        self.response = response
+
+    def __str__(self) -> str:
+        return super().__str__() + F"\nStatus: {self.status}\nReason: {self.reason}"
 
 class Method(Enum):
     GET = 'GET'
@@ -17,12 +35,12 @@ class Method(Enum):
 class Request:
     method: Method
     url: str
-    query_params: dict[str, Any] = field(default_factory=dict)
-    headers: dict[str, Any] = field(default_factory=dict)
-    data: dict[str, Any] = field(default_factory=dict)
+    query_params: dict[str, str]= field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+    data: JsonMap = field(default_factory=dict)
     data_is_json: bool = False
 
-    def send(self, session: aiohttp.ClientSession):
+    def send(self, session: Session):
         json = None
         data = None
         params = None
@@ -37,28 +55,27 @@ class Request:
             params = self.query_params
         return session.request(self.method.value, self.url, json=json, data=data, params=params, headers=headers)
 
-    def __str__(self) -> str:
-        return F"{self.method.value} {self.url} {self.query_params} {self.headers} {self.data}"
-
 async def serve_one_request(host: str, port: int, response_body: str) -> dict[str, str]:
+    import aiohttp.web
 
     query: dict[str, str] = {}
-    handled_req = False
+    did_serve_once = asyncio.Semaphore(0)
 
     server = aiohttp.web.Application()
 
     async def index_handler(request: aiohttp.web.Request):
-        nonlocal query, handled_req
-        query = cast(dict[str, str], request.query)
-        handled_req = True
+        if did_serve_once.locked():
+            return aiohttp.web.Response(text="Already handled", status=500)
+        for key, value in request.query.items():
+            query[key] = value
+        did_serve_once.release()
         return aiohttp.web.Response(text=response_body, content_type='text/html')
     server.router.add_get("/", index_handler)
 
     run_task_ = aiohttp.web._run_app(server, host=host, port=port) # type: ignore ## reportPrivateUsage
     run_task = asyncio.create_task(run_task_)
 
-    while not handled_req:
-        await asyncio.sleep(0.1)
+    await did_serve_once.acquire()
     run_task.cancel()
     try:
         await run_task
