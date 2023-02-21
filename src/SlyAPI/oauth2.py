@@ -20,7 +20,7 @@ import urllib.parse
 # currently just a marker and has no effect
 def requires_scopes(*_scopes: str):
     'mark a endpoint as requiring specific scopes to be used'
-    def decorator(func): return func
+    def decorator(func: Callable[[*Any], Any]): return func
     return decorator
 
 @dataclass
@@ -151,7 +151,7 @@ class OAuth2App:
         }
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
 
-        async with session.post(self.token_uri, data=data, headers=headers) as resp:
+        async with client.post(self.token_uri, data=data, headers=headers) as resp:
             if resp.status != 200:
                 raise RuntimeError(f'Refresh failed: {resp.status}')
             result = await resp.json()
@@ -191,7 +191,7 @@ class OAuth2(Auth):
         await self._refreshed.acquire()
         if datetime.utcnow() > self.user.expires_at:
             # TODO: log refresh
-            self.user = await self.app.refresh(session, self.user)
+            self.user = await self.app.refresh(client, self.user)
         self._refreshed.release()
         request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
         return request

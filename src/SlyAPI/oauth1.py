@@ -131,7 +131,7 @@ class OAuth1(Auth):
 
         return request
 
-async def command_line_oauth1(oauth1, redirect_host: str, redirect_port: int, usePin: bool):
+async def command_line_oauth1(oauth1: OAuth1, redirect_host: str, redirect_port: int, usePin: bool):
     import webbrowser
     import urllib.parse
 

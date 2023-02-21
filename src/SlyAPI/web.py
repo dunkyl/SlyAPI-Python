@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from aiohttp import ClientSession as Client, ClientResponse as Response
 
@@ -35,7 +36,7 @@ class Method(Enum):
 class Request:
     method: Method
     url: str
-    query_params: dict[str, str]= field(default_factory=dict)
+    query_params: dict[str, str|int]= field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
     data: JsonMap = field(default_factory=dict)
     data_is_json: bool = False
@@ -53,7 +54,7 @@ class Request:
             headers = self.headers
         if self.query_params:
             params = self.query_params
-        return session.request(self.method.value, self.url, json=json, data=data, params=params, headers=headers)
+        return client.request(self.method.value, self.url, json=json, data=data, params=params, headers=headers)
 
 async def serve_one_request(host: str, port: int, response_body: str) -> dict[str, str]:
     import aiohttp.web

@@ -20,7 +20,7 @@ class UrlApiKey(Auth):
     def __init__(self, param_name: str, secret: str):
         self.params = {param_name: secret}
 
-    async def sign(self, _, request: Request) -> Request:
+    async def sign(self, client: Client, request: Request) -> Request:
         request.query_params |= self.params
         return request
 
@@ -31,14 +31,14 @@ class HeaderApiKey(Auth):
     def __init__(self, param_name: str, secret: str):
         self.headers = {param_name: secret}
 
-    async def sign(self, _, request: Request) -> Request:
+    async def sign(self, client: Client, request: Request) -> Request:
         request.headers |= self.headers
         return request
 
 class NoAuth(Auth):
     'Does nothing.'
 
-    async def sign(self, _, request: Request) -> Request: return request
+    async def sign(self, client: Client, request: Request) -> Request: return request
 
 
 

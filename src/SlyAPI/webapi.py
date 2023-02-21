@@ -2,7 +2,7 @@ from enum import Enum
 import json
 from typing import Any, AsyncGenerator, cast
 
-from aiohttp import ClientSession as Client
+from aiohttp import ClientSession as Client, ContentTypeError
 
 from .asyncy import AsyncLazy, run_sync_ensured
 from .auth import Auth
@@ -33,9 +33,9 @@ class WebAPI():
             run_sync_ensured(self._client.close())
 
     # delimit lists and sets, convert enums to their values, and exclude None values
-    def _convert_parameters(self, params: dict[str, Any]|None) -> dict[str, Any]:
+    def _convert_parameters(self, params: ParamsDict) -> dict[str, str|int]:
         if params is None: return {}
-        converted = {}
+        converted: dict[str, str|int] = {}
         for k, v in params.items():
             if v is None:
                 continue
@@ -61,7 +61,11 @@ class WebAPI():
         signed = await self.auth.sign(self._client, request)
         async with signed.send(self._client) as resp:
             if resp.status >= 400:
-                raise ApiError(resp.status, resp.reason, resp)
+                try:
+                    reason = await resp.text()
+                except ContentTypeError as _:
+                    reason = None
+                raise ApiError(resp.status, reason, resp)
             elif resp.status == 204:
                 return None
             else:
