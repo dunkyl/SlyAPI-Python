@@ -109,9 +109,9 @@ def test_oauth2_serialize():
         'auth_uri': 'https://example.com/authorize',
     }
 
-    app1 = OAuth2(obj)
+    app1 = OAuth2App.from_json_obj(obj)
 
-    app2 = OAuth2("test/ex_oauth2.json")
+    app2 = OAuth2App.from_json_file("test/ex_oauth2.json")
 
     assert app1 == app2
 

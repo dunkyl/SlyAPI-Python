@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 
-from aiohttp import ClientSession as Session, ClientResponse as Response
+from aiohttp import ClientSession as Client, ClientResponse as Response
 
 ParamType = int | str | Enum | list['ParamType'] | set['ParamType']|None
 ParamsDict = dict[str, ParamType]|None
@@ -40,7 +40,7 @@ class Request:
     data: JsonMap = field(default_factory=dict)
     data_is_json: bool = False
 
-    def send(self, session: Session):
+    def send(self, client: Client):
         json = None
         data = None
         params = None
@@ -78,6 +78,7 @@ async def serve_one_request(host: str, port: int, response_body: str) -> dict[st
     await did_serve_once.acquire()
     run_task.cancel()
     try:
+        # wait for cancel to finish
         await run_task
     except asyncio.exceptions.CancelledError:
         pass

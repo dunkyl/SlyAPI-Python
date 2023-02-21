@@ -2,8 +2,8 @@ from dataclasses import asdict
 import sys, json, asyncio
 
 from .webapi import *
-from .oauth1 import OAuth1
-from .oauth2 import OAuth2
+from .oauth1 import OAuth1, command_line_oauth1
+from .oauth2 import OAuth2App, command_line_oauth2
 
 args = sys.argv[1:]
 
@@ -11,17 +11,16 @@ match args:
     case ['oauth1-flow', app_file, out_file]:
         app = OAuth1(json.load(open(app_file, 'rb')))
         asyncio.run(
-            app.user_auth_flow('127.0.0.1', 8080, True))
+            command_line_oauth1(app, 'localhost', 8080, True))
         with open(out_file, 'w') as f:
+            assert(app.user is not None)
             json.dump(asdict(app.user), f, indent=4)
     case ['oauth2-flow', app_file, out_file, *scopes]:
-        app = OAuth2(json.load(open(app_file, 'rb')))
-        scopes = ' '.join(scopes)
-        asyncio.run(
-            app.user_auth_flow('localhost', 8080, scopes=scopes))
-        assert(app.user is not None)
+        app = OAuth2App.from_json_obj(json.load(open(app_file, 'rb')))
+        user = asyncio.run(
+            command_line_oauth2(app, 'localhost', 8080, scopes))
         with open(out_file, 'w') as f:
-            json.dump(app.user.to_dict(), f, indent=4)
+            json.dump(user.to_dict(), f, indent=4)
     case ['scaffold', kind, app_file]:
         if kind == 'oauth1':
             example = {
@@ -47,9 +46,9 @@ match args:
         print("  SlyAPI <command> [<args>]")
         print("")
         print("Commands:")
-        print("  oauth1-flow APP_FILE USER_FILE [--host HOST] [--port PORT]: grant a single OAuth1 user token with the local flow.")
+        print("  oauth1-flow APP_FILE USER_FILE: grant a single OAuth1 user token with the local flow.")
         print("")
-        print("  oauth2-flow APP_FILE USER_FILE SCOPES... [--host HOST] [--port PORT] : grant a single OAuth2 user token with the local flow.")
+        print("  oauth2-flow APP_FILE USER_FILE [SCOPES...]: grant a single OAuth2 user token with the local flow.")
         print("")
         print("  scaffold KIND APP_FILE: create an example application json file for filling in manually.")
         print("                  KIND is one of 'oauth1' or 'oauth2'.")

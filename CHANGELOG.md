@@ -8,6 +8,7 @@
 - `Auth.sign_request` renamed to `Auth.sign`
 - `WebAPI` now requires an `Auth` object, not None
     - use `Auth.none()` for no auth
+- `OAuth2User` no longer keeps a `source_path` and does not do any IO
 
 ### Added
 - Google flavor app/client JSON files can now be used to create `OAuth2`
@@ -15,6 +16,7 @@
 - `HeaderApiKey` for adding API keys to the `Authorization` header, or any other header
 - `WebAPI._parameter_list_delimiter` for serialization. Only applies to URL parameters.
 - `NoAuth` implementation of `Auth`
+- `OAuth2` accepts a callback for when user tokens are refreshed.
 
 ### Removed
 - `EnumParam`, `EnumParams` types. Instead, use `set[str]` or `set[T]` where `T` is an enum type.
@@ -22,3 +24,4 @@
     - Alternatively, set `WebAPI._parameter_list_delimiter` to the appropriate delimiter for your API.
 - `APIObj` did not provide much value as a base class, and could make usage less clear.
 - `Auth.refresh` and `Auth.flow`, which could not be implemented by many authorization schemes.
+- `AsyncInit` base class, which was no longer needed.

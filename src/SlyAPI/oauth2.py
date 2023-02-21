@@ -5,14 +5,15 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 import json
 import secrets
-from typing import Any
+from copy import copy
+from typing import Any, Callable
 
 from warnings import warn
 
 from .auth import Auth
 from .web import Request, serve_one_request
 
-import aiohttp, aiohttp.web
+from aiohttp import ClientSession as Client
 
 import urllib.parse
 
@@ -28,7 +29,6 @@ class OAuth2User:
     refresh_token: str
     expires_at: datetime
     token_type: str = 'Bearer'
-    source_path: str | None = None
     scopes: list[str] = field(default_factory=list)
 
     def __init__(self, source: str | dict[str, Any], source_path: str | None = None) -> None:
@@ -43,7 +43,7 @@ class OAuth2User:
                 'expires_at': expires_at_str,
                 'token_type': token_type,
                 'scopes': scopes
-            }: #dumps
+            }: # JSON file
                 self.token = token
                 self.refresh_token = refresh_token
                 self.expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
@@ -91,47 +91,40 @@ class OAuth2User:
             raise ValueError("Cannot save OAuth2User without a path to save to")
 
 @dataclass
-class OAuth2(Auth):
+class OAuth2App:
     id: str
     secret: str
-
     auth_uri: str # flow step 1
     token_uri: str # flow step 3
 
-    user: OAuth2User | None = None
-
-    _refresh_task: asyncio.Task[None] | None = None
-
-    def __init__(self, source: str | dict[str, Any]| tuple[str, str, str, str], user: OAuth2User | None = None) -> None:
-        match source:
-            case str(): # file path
-                with open(source, 'r') as f:
-                    self.__init__(json.load(f))
-            case tuple(i_s_a_t):
-                self.id, self.secret, self.auth_uri, self.token_uri = i_s_a_t
-            # app file contents
-            case { 'id': id_, 'secret': secret, 'auth_uri': auth_uri, 'token_uri': token_uri}:
-                self.__init__((id_, secret, auth_uri, token_uri))
-            # google client download
-            case { 'web': {
-                    'client_id': id_,
-                    'client_secret': secret, 'auth_uri': auth_uri, 'token_uri': token_uri}
-                }:
-                self.__init__((id_, secret, auth_uri, token_uri))
+    @classmethod
+    def from_json_obj(cls, obj: dict[str, str]) -> 'OAuth2App':
+        '''Read an app from a JSON object, either from the Google Console JSON format or a set of kwargs'''
+        match obj:
+            case { # to_dict(self)
+                'id': id,
+                'secret': secret,
+                'auth_uri': auth_uri,
+                'token_uri': token_uri
+            } | { # Google JSON
+                'web': {
+                    'client_id': id,
+                    'client_secret': secret,
+                    'auth_uri': auth_uri,
+                    'token_uri': token_uri
+                }
+            }: 
+                return cls(id, secret, auth_uri, token_uri)
             case _:
-                raise ValueError(F"Invalid OAuth2 source: {source}")
-        self.user = user
+                raise ValueError(F"Unknown format for OAuth2App: {obj}")
 
-    def verify_scope(self, scope: str):
-        scopes = scope.split(' ')
-        for scope in scopes:
-            if not self.user:
-                raise ValueError("User credentials must be used when scope is specified")
-            if scope not in self.user.scopes:
-                raise ValueError(F"User credentials do not have the scope: {scope}")
-        return True
+    @classmethod
+    def from_json_file(cls, path: str) -> 'OAuth2App':
+        '''Read an app from a JSON file path'''
+        with open(path, 'rb') as f:
+            return cls.from_json_obj(json.load(f))
 
-    def get_auth_url(self, redirect_uri: str, state: str, scopes: str) -> tuple[str, str, str]:
+    def auth_url_with_pkce(self, redirect_uri: str, state: str, scopes: str) -> tuple[str, str, str]:
         state_challenge = secrets.token_urlsafe(54)
         code_verifier = secrets.token_urlsafe(54)
         verifier_hash = sha256(code_verifier.encode('utf-8')).digest()
@@ -147,28 +140,12 @@ class OAuth2(Auth):
             'access_type': 'offline',
             'prompt': 'consent', # re-issue refresh tokens!
             }
-            # 
         return F"{self.auth_uri}?{urllib.parse.urlencode(params)}", code_verifier, state_challenge
 
-    async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request:
-        if self.user is None:
-            raise NotImplementedError("OAuth 2 request signing without user is not yet implemented.")
-        if self._refresh_task is not None:
-            await asyncio.wait_for(self._refresh_task, timeout=None)
-        elif datetime.utcnow() > self.user.expires_at:
-            # TODO: log refresh
-            self._refresh_task = asyncio.create_task(self.refresh(session))
-            await self._refresh_task
-            self._refresh_task = None
-        request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
-        return request
-
-    async def refresh(self, session: aiohttp.ClientSession):
-        if self.user is None:
-            raise NotImplementedError("Refresh without user is not implemented.")
+    async def refresh(self, client: Client, user: OAuth2User):
         data = {
             'grant_type': 'refresh_token',
-            'refresh_token': self.user.refresh_token,
+            'refresh_token': user.refresh_token,
             'client_id': self.id,
             'client_secret': self.secret,
         }
@@ -187,64 +164,91 @@ class OAuth2(Auth):
                 **_others
             }: # OAuth 2 refresh response
                 expiry = datetime.utcnow() + timedelta(seconds=int(expires_str))
-                self.user.token = token
-                self.user.expires_at = expiry
-                self.user.token_type = token_type
+                new_user = copy(user)
+                new_user.token = token
+                new_user.expires_at = expiry
+                new_user.token_type = token_type
             case _:
                 raise ValueError(F"Invalid OAuth2 refresh response: {result}")
-        self.user.save()
-         
-    async def user_auth_flow(self, redirect_host: str, redirect_port: int, **kwargs: str):
-        import webbrowser
-        import os
+        return new_user
 
-        redirect_uri = F'http://{redirect_host}:{redirect_port}'
+@dataclass
+class OAuth2(Auth):
+    app: OAuth2App
+    user: OAuth2User
 
-        scopes: str = kwargs['scopes']
+    _refreshed: asyncio.Semaphore
+    _refresh_callback: Callable[[OAuth2User], None] | None = None
 
-        # step 1: get the user to authorize the application
-        grant_link, verifier, state = self.get_auth_url(redirect_uri, '', scopes)
-
-        if not webbrowser.open(grant_link, new=1, autoraise=True):
-            print("Please open the following link in your browser:")
-            print(grant_link)
-            print("Then enter the code below:")
-            code = input("code")
-        else:
-            # step 2: wait for the user to be redirected with the code
-            html = open(os.path.join(os.path.dirname(__file__), 'step2.html'), 'r').read()
-            query = await serve_one_request(redirect_host, redirect_port, html)
-
-            # challenge is state[-54:], but state is explicitly ''
-            # BUT 54 is LENGTH IN BYTES OF RAW CHALLENGE, *NOT* the length of the base64-encoded challenge
-            if 'state' not in query:
-                raise PermissionError("Redirect did not return any state parameter.")
-            elif query['state'] != state:
-                raise PermissionError("Redirect did not return the correct state parameter.")
-            elif 'code' not in query:
-                raise PermissionError("Redirect did authorize grant.")
-            code = query['code']
-
-        # step 3: exchange the code for access token
-        grant_data = {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'client_id': self.id,
-            # 'client_secret': self.secret,
-            'redirect_uri': redirect_uri,
-            'scope': scopes,
-            'code_verifier': verifier,
-        }
-        grant_headers = {
-            'Authorization': F"Basic {base64.b64encode(F'{self.id}:{self.secret}'.encode('utf-8')).decode('utf-8')}",
-            'Content-Type': 'application/x-www-form-urlencoded'
-            }
-
-        async with aiohttp.request('POST', self.token_uri, data=grant_data, headers=grant_headers) as resp:
-            if resp.status != 200:
-                print(await resp.text())
-                raise RuntimeError(f'Grant failed: {resp.status}')
-            result = await resp.json()
-            user = OAuth2User(result)
-
+    def __init__(self, app: OAuth2App, user: OAuth2User,
+        on_refresh: Callable[[OAuth2User], None] | None = None) -> None:
+        self.app = app
         self.user = user
+        self._refresh_callback = on_refresh
+        self._refreshed = asyncio.Semaphore()
+
+    async def sign(self, client: Client, request: Request) -> Request:
+        await self._refreshed.acquire()
+        if datetime.utcnow() > self.user.expires_at:
+            # TODO: log refresh
+            self.user = await self.app.refresh(session, self.user)
+        self._refreshed.release()
+        request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
+        return request
+         
+async def command_line_oauth2(
+    app: OAuth2App,
+    redirect_host: str,
+    redirect_port: int,
+    scopes: list[str]) -> OAuth2User:
+    import webbrowser
+    import os
+    import aiohttp
+
+    redirect_uri = F'http://{redirect_host}:{redirect_port}'
+
+    # step 1: get the user to authorize the application
+    grant_link, verifier, state = app.auth_url_with_pkce(redirect_uri, '', ' '.join(scopes))
+
+    if not webbrowser.open(grant_link, new=1, autoraise=True):
+        print("Please open the following link in your browser:")
+        print(grant_link)
+        print("Then enter the code below:")
+        code = input("code")
+    else:
+        # step 2: wait for the user to be redirected with the code
+        html = open(os.path.join(os.path.dirname(__file__), 'step2.html'), 'r').read()
+        query = await serve_one_request(redirect_host, redirect_port, html)
+
+        # challenge is state[-54:], but state is explicitly ''
+        # BUT 54 is LENGTH IN BYTES OF RAW CHALLENGE, *NOT* the length of the base64-encoded challenge
+        if 'state' not in query:
+            raise PermissionError("Redirect did not return any state parameter.")
+        elif query['state'] != state:
+            raise PermissionError("Redirect did not return the correct state parameter.")
+        elif 'code' not in query:
+            raise PermissionError("Redirect did authorize grant.")
+        code = query['code']
+
+    # step 3: exchange the code for access token
+    grant_data = {
+        'grant_type': 'authorization_code',
+        'code': code,
+        'client_id': app.id,
+        'redirect_uri': redirect_uri,
+        'scope': scopes,
+        'code_verifier': verifier,
+    }
+    grant_headers = {
+        'Authorization': F"Basic {base64.b64encode(F'{app.id}:{app.secret}'.encode('utf-8')).decode('utf-8')}",
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+
+    async with aiohttp.request('POST', app.token_uri, data=grant_data, headers=grant_headers) as resp:
+        if resp.status != 200:
+            print(await resp.text())
+            raise RuntimeError(f'Grant failed: {resp.status}')
+        result = await resp.json()
+        user = OAuth2User(result)
+
+    return user

@@ -2,7 +2,7 @@ from enum import Enum
 import json
 from typing import Any, AsyncGenerator, cast
 
-from aiohttp import ClientSession as Session
+from aiohttp import ClientSession as Client
 
 from .asyncy import AsyncLazy, run_sync_ensured
 from .auth import Auth
@@ -18,19 +18,19 @@ from .web import Request, Method, JsonMap, ParamsDict, ApiError
 #         self._service = service
 
 class WebAPI():
-    _session: Session
+    _client: Client
     _parameter_list_delimiter: str = ','
 
     base_url: str
     auth: Auth
 
     def __init__(self, auth:Auth) -> None:
-        self._session = Session()
+        self._client = Client()
         self.auth = auth
 
     def __del__(self):
         if hasattr(self, '_session'):
-            run_sync_ensured(self._session.close())
+            run_sync_ensured(self._client.close())
 
     # delimit lists and sets, convert enums to their values, and exclude None values
     def _convert_parameters(self, params: dict[str, Any]|None) -> dict[str, Any]:
@@ -58,8 +58,8 @@ class WebAPI():
     # authenticate and use the base URL to make a request
     async def _base_request(self, request: Request) -> str|None:
         request.url = self.get_full_url(request.url)
-        signed = await self.auth.sign(self._session, request)
-        async with signed.send(self._session) as resp:
+        signed = await self.auth.sign(self._client, request)
+        async with signed.send(self._client) as resp:
             if resp.status >= 400:
                 raise ApiError(resp.status, resp.reason, resp)
             elif resp.status == 204:

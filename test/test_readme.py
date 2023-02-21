@@ -22,7 +22,7 @@ class OpenWeather(WebAPI):
     base_url = 'https://api.openweathermap.org/data/2.5'
 
     def __init__(self, api_key: str):
-        super().__init__(APIKey('appid', api_key))
+        super().__init__(UrlApiKey('appid', api_key))
 
     async def city(self,  location: str, mode: Mode=Mode.JSON,
             units: Units=Units.STANDARD,

@@ -112,12 +112,7 @@ class OAuth1(Auth):
                 raise ValueError(F"Invalid OAuth1 source: {source}")
         self.user = user
 
-    async def refresh(self, session: aiohttp.ClientSession):
-        if self.user is None:
-            raise NotImplemented("Client credentials are not refreshable")
-        raise NotImplemented("Refresh is not implemented")
-
-    async def sign_request(self, session: aiohttp.ClientSession, request: Request) -> Request:
+    async def sign(self, client: aiohttp.ClientSession, request: Request) -> Request:
         signing_params = _common_oauth_params(self.key)
         user_secret = None
         if self.user is not None:
@@ -136,62 +131,62 @@ class OAuth1(Auth):
 
         return request
 
-    async def user_auth_flow(self, redirect_host: str, redirect_port: int, usePin: bool, **kwargs: str):
-        import webbrowser
-        import urllib.parse
+async def command_line_oauth1(oauth1, redirect_host: str, redirect_port: int, usePin: bool):
+    import webbrowser
+    import urllib.parse
 
-        redirect_uri = F'http://{redirect_host}:{redirect_port}'
+    redirect_uri = F'http://{redirect_host}:{redirect_port}'
 
-        session = aiohttp.ClientSession()
+    session = aiohttp.ClientSession()
 
-        # step 1: get a token to ask the user for authorization
-        request = Request(
-            Method.POST,
-            self.request_uri,
-            {'oauth_callback': 'oob' if usePin else percentEncode(redirect_uri)}
-        )
-        assert self.user is None
-        signed_request = await self.sign_request(session, request)
-        
-        oauth_token = None
-        async with signed_request.send(session) as resp:
-            content = await resp.text()
-            resp_params = urllib.parse.parse_qs(content)
-            if 'oauth_token' not in resp_params:
-                print(F"Response did not provide authorization:\n{content}")
-                print("\nThis is probably because the credentials for the app are invalid.")
-                await session.close()
-                exit(1)
-                # raise ValueError(F"Response did not provide authorization:\n{content}")
-            oauth_token = resp_params['oauth_token'][0]
-            # oauth_token_secret = resp_params['oauth_token_secret'][0]
-            if resp_params['oauth_callback_confirmed'][0] != 'true':
-                raise ValueError(f"oauth_callback_confirmed was not true")
+    # step 1: get a token to ask the user for authorization
+    request = Request(
+        Method.POST,
+        oauth1.request_uri,
+        {'oauth_callback': 'oob' if usePin else percentEncode(redirect_uri)}
+    )
+    assert oauth1.user is None
+    signed_request = await oauth1.sign(session, request)
+    
+    oauth_token = None
+    async with signed_request.send(session) as resp:
+        content = await resp.text()
+        resp_params = urllib.parse.parse_qs(content)
+        if 'oauth_token' not in resp_params:
+            print(F"Response did not provide authorization:\n{content}")
+            print("\nThis is probably because the credentials for the app are invalid.")
+            await session.close()
+            exit(1)
+            # raise ValueError(F"Response did not provide authorization:\n{content}")
+        oauth_token = resp_params['oauth_token'][0]
+        # oauth_token_secret = resp_params['oauth_token_secret'][0]
+        if resp_params['oauth_callback_confirmed'][0] != 'true':
+            raise ValueError(f"oauth_callback_confirmed was not true")
 
-        # step 2: get the user to authorize the application
-        grant_link = F"{self.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
+    # step 2: get the user to authorize the application
+    grant_link = F"{oauth1.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
 
-        webbrowser.open(grant_link, new=1, autoraise=True)
+    webbrowser.open(grant_link, new=1, autoraise=True)
 
-        # step 2 (cont.): wait for the user to be redirected with the code
-        if usePin:
-            pin = input("Enter the PIN: ")
-            oauth_verifier = pin
+    # step 2 (cont.): wait for the user to be redirected with the code
+    if usePin:
+        pin = input("Enter the PIN: ")
+        oauth_verifier = pin
 
-        else:
-            query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
+    else:
+        query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
 
-            oauth_token = query['oauth_token']
-            oauth_verifier = query['oauth_verifier']
+        oauth_token = query['oauth_token']
+        oauth_verifier = query['oauth_verifier']
 
-        # step 3: exchange the code for access token
-        # this step does not use the OAuth authorization headers
-        async with session.request('POST', self.access_uri, params = {
-            'oauth_token': oauth_token,
-            'oauth_verifier': oauth_verifier
-        }) as resp:
-            content = await resp.text()
-            resp_params = urllib.parse.parse_qs(content)
-            self.user = OAuth1User({k: v[0] for k, v in resp_params.items()})
+    # step 3: exchange the code for access token
+    # this step does not use the OAuth authorization headers
+    async with session.request('POST', oauth1.access_uri, params = {
+        'oauth_token': oauth_token,
+        'oauth_verifier': oauth_verifier
+    }) as resp:
+        content = await resp.text()
+        resp_params = urllib.parse.parse_qs(content)
+        oauth1.user = OAuth1User({k: v[0] for k, v in resp_params.items()})
 
-        await session.close()
+    await session.close()
