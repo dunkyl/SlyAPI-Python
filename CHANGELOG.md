@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Changed
-- `WebAPI` is no longer AsyncInit, and should not be awaited
+- `WebAPI` is no longer `AsyncInit`, and should not be awaited
 - `APIKey` renamed to `UrlApiKey`, `APIError` to `ApiError`
 - `Auth.sign_request` renamed to `Auth.sign`
 - `WebAPI` now requires an `Auth` object, not None

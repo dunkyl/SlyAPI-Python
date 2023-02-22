@@ -4,11 +4,11 @@ import json
 from typing import Any, AsyncGenerator, cast
 
 from aiohttp import ClientSession as Client, ContentTypeError
-from .asyncy import AsyncLazy, unmanage_async_context, AsyncInit
+from .asyncy import AsyncLazy, unmanage_async_context_sync
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
-class WebAPI(AsyncInit):
+class WebAPI():
     _client: Client
     _client_close_semaphone: asyncio.Semaphore
     _parameter_list_delimiter: str = ','
@@ -16,8 +16,8 @@ class WebAPI(AsyncInit):
     base_url: str
     auth: Auth
 
-    async def __init__(self, auth:Auth) -> None:
-        self._client, self._client_close_semaphone = await unmanage_async_context(Client())
+    def __init__(self, auth:Auth) -> None:
+        self._client, self._client_close_semaphone = unmanage_async_context_sync(Client())
         self.auth = auth
 
     def __del__(self):

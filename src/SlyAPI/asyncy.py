@@ -1,11 +1,8 @@
 '''Useful classes and functions for asynchronous programming.'''
-from abc import ABC, abstractmethod
 import asyncio
 import functools
-import traceback
-from typing import Awaitable, Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+from typing import Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
 from contextlib import AbstractAsyncContextManager
-import warnings
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -43,6 +40,29 @@ async def unmanage_async_context(context: AbstractAsyncContextManager[T]) -> tup
     unmanaged_tasks.add(task)
     task.add_done_callback(unmanaged_tasks.remove)
     await extracted_semaphore.acquire()
+    if extracted is MISSING:
+        raise RuntimeError('Async context manager did not return a value.')
+    else:
+        return (
+            extracted, # type: ignore
+            closed_semaphore )
+
+def unmanage_async_context_sync(context: AbstractAsyncContextManager[T]) -> tuple[T, asyncio.Semaphore]:
+    '''
+    Extract an async context manager's value without manually managing its lifetime.
+    The context manager is leaked and will only be cleaned up when the program exits.
+    '''
+    MISSING = object()
+    extracted = context
+    closed_semaphore = asyncio.Semaphore(0)
+    async def background():
+        nonlocal extracted
+        async with context as _inner:
+            print(f'Released semaphore for {context}')
+            await closed_semaphore.acquire()
+    task = asyncio.create_task(background())
+    unmanaged_tasks.add(task)
+    task.add_done_callback(unmanaged_tasks.remove)
     if extracted is MISSING:
         raise RuntimeError('Async context manager did not return a value.')
     else:
@@ -102,76 +122,3 @@ class AsyncTrans(Generic[U]):
 
     async def _items(self) -> list[U]:
         return [u async for u in self]
-
-TSelfAtAsyncClass = TypeVar("TSelfAtAsyncClass", bound="AsyncInit")
-TAsyncInitClass = TypeVar("TAsyncInitClass", bound="AsyncInit")
-
-
-class PendingInit(Generic[TAsyncInitClass]):
-    '''Temporary value to hold an AsyncInit instance until it is awaited.'''
-    _async_uinit_inst: TAsyncInitClass
-    _was_awaited: bool = False
-
-    def __init__(self, uninit_inst: TAsyncInitClass, args: 'tuple[*Any]', kwargs: dict[str, Any]):
-        self._async_uinit_inst = uninit_inst
-        stackframe = traceback.extract_stack()[-3]
-        self._construction_site = (stackframe.filename, stackframe.lineno or 0)
-        self._init_args = args
-        self._init_kwargs = kwargs
-
-    def __await__(self) -> Generator[Any, Any, TAsyncInitClass]:
-        self._was_awaited = True
-        return self._init_and_return_inst().__await__()
-
-    async def _init_and_return_inst(self) -> TAsyncInitClass:
-        await self._async_uinit_inst.__init__(*self._init_args, **self._init_kwargs)
-        return self._async_uinit_inst
-
-    def __getattribute__(self, item: str) -> Any:
-        if not item.startswith('_'):
-            raise RuntimeError("AsyncInit class must be awaited before accessing public attributes.")
-        return super().__getattribute__(item)
-
-    def __del__(self):
-        if not self._was_awaited:
-            offendingName = self._async_uinit_inst.__class__.__name__
-            warnings.warn_explicit(
-                F"AsyncInit class {offendingName}'s construction was never awaited!",
-                RuntimeWarning,
-                *self._construction_site
-            )
-
-class AsyncInit(ABC): # Awaitable[TSelfAtAsyncClass]
-    '''Class which depends on some asynchronous initialization.
-    Subclass AsyncInit and define an __init__ method which is async.
-
-    Note:
-        Some analysis tools will show a type error unless __init__ is annotated with an explicit return type of `None`.
-
-    Caution:
-        Accessing any non-static public attributes before the async initialization is complete will result in an error.
-
-    Example:
-        class MyAsyncInit(AsyncInit):
-            async def __init__(self, param1):
-                self.easy_value = param1
-                # do some async stuff
-                await asyncio.sleep(0.1)
-                self.hard_value = "this took a while to retrive"
-
-        inst = await MyAsyncInit(42)
-    '''
-    
-    @abstractmethod
-    async def __init__(self, *args: Any, **kwargs: Any) -> None: pass
-
-    def __new__(cls: type[TSelfAtAsyncClass], *args: Any, **kwargs: Any) -> Awaitable[TSelfAtAsyncClass]:
-        inst = object.__new__(cls)
-        
-        if not asyncio.iscoroutinefunction(cls.__init__):
-            warnings.warn(F"{cls.__name__}.__init__ should be async.", RuntimeWarning, 2)
-
-        return PendingInit(inst, args, kwargs)
-
-    def __await__(self: TSelfAtAsyncClass) -> Generator[Any, Any, TSelfAtAsyncClass]:
-        raise NotImplementedError()
