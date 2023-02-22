@@ -15,7 +15,7 @@ class Units(Enum):
 class City:
     def __init__(self, src: dict[str, Any]):
         self.name = src['name']
-        self.description = src['weather']['description']
+        self.description = src['weather'][0]['description']
         self.temperature = src['main']['temp']
         # ...
 
@@ -38,3 +38,14 @@ class OpenWeather(WebAPI):
             'mode': mode,
         }
         return City(await self.get_json('/weather', params))
+
+async def test_readme():
+
+    key = open('test/apikey.txt', encoding='utf8').read().strip()
+    weather = OpenWeather(key)
+
+    city = await weather.city('New York,NY,US', units=Units.IMPERIAL)
+
+    print(F"It's {city.temperature}°F in {city.name}, {city.description}.")
+
+    assert(False)

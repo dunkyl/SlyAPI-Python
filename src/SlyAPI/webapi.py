@@ -33,10 +33,12 @@ class WebAPI():
             elif isinstance(v, (list, set)):
                 if len(v) != 0:
                     if isinstance(v.__iter__().__next__(), Enum):
-                        v = (e.value for e in v)
+                        v = (e.value for e in v if e.value is not None)
                     converted[k] = self._parameter_list_delimiter.join(v)
             elif isinstance(v, Enum):
-                converted[k] = v.value
+                if v.value is not None:
+                    converted[k] = v.value
+                # still skip if enum value is None
             else:
                 converted[k] = v
         return converted
