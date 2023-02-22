@@ -8,7 +8,7 @@ from aiohttp import ClientSession as Client, ClientResponse as Response
 ParamType = int | str | Enum | list['ParamType'] | set['ParamType'] | None
 # Mapping is covariant in the value type, allowing for subclasses of Enum as values.
 # dict is invariant in the value type, so we need to use Mapping instead.
-ParamsDict = Mapping[str, ParamType] | None
+ParamsDict = Mapping[str, ParamType]
 
 JsonType = int | float | bool | str | None | list['JsonType'] | dict[str, 'JsonType']
 JsonMap = dict[str, JsonType]

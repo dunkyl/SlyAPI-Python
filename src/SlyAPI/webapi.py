@@ -1,46 +1,46 @@
 from enum import Enum
+import asyncio
 import json
 from typing import Any, AsyncGenerator, cast
 
 from aiohttp import ClientSession as Client, ContentTypeError
-
-from .asyncy import AsyncLazy, run_sync_ensured
+from .asyncy import AsyncLazy, unmanage_async_context, AsyncInit
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
-class WebAPI():
+class WebAPI(AsyncInit):
     _client: Client
+    _client_close_semaphone: asyncio.Semaphore
     _parameter_list_delimiter: str = ','
 
     base_url: str
     auth: Auth
 
-    def __init__(self, auth:Auth) -> None:
-        self._client = Client()
+    async def __init__(self, auth:Auth) -> None:
+        self._client, self._client_close_semaphone = await unmanage_async_context(Client())
         self.auth = auth
 
     def __del__(self):
-        if hasattr(self, '_session'):
-            run_sync_ensured(self._client.close())
+        self._client_close_semaphone.release()
+        # self._client._connector._close()
+        # self._client._connector = None
 
     # delimit lists and sets, convert enums to their values, and exclude None values
     def _convert_parameters(self, params: ParamsDict) -> dict[str, str|int]:
-        if params is None: return {}
         converted: dict[str, str|int] = {}
         for k, v in params.items():
-            if v is None:
-                continue
-            elif isinstance(v, (list, set)):
-                if len(v) != 0:
-                    if isinstance(v.__iter__().__next__(), Enum):
+            match v:
+                case [first, *_]:
+                    if isinstance(first, Enum):
                         v = (e.value for e in v if e.value is not None)
+                    if len(v) == 0:
+                        continue
                     converted[k] = self._parameter_list_delimiter.join(v)
-            elif isinstance(v, Enum):
-                if v.value is not None:
+                case Enum() if v.value is not None:
                     converted[k] = v.value
-                # still skip if enum value is None
-            else:
-                converted[k] = v
+                case int() | str():
+                    converted[k] = v
+                case _: pass # exclude None values
         return converted
 
     # convert a relative path to an absolute url for this api
@@ -76,39 +76,39 @@ class WebAPI():
     async def _empty_request(self, req: Request) -> None:
         await self._base_request(req)
 
-    def _create_request(self, method: Method, path: str, params: ParamsDict=None, 
+    def _create_request(self, method: Method, path: str, params: ParamsDict|None=None, 
         json: Any=None, headers: dict[str, str]|None=None
         ) -> Request:
         return Request( method,
-            path, self._convert_parameters(params),
+            path, self._convert_parameters(params) if params else {},
             headers or {},
             json, True
         )
 
     # TODO: _create_form_request
 
-    async def get_json(self, path: str, params: ParamsDict=None,
+    async def get_json(self, path: str, params: ParamsDict|None=None,
         json: JsonMap|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_request(
             Method.GET, path, params, json, headers
         ))
 
-    async def post_json(self, path: str, params: ParamsDict=None,
+    async def post_json(self, path: str, params: ParamsDict|None=None,
         json: JsonMap|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_request(
             Method.POST, path, params, json, headers
         ))
 
-    async def put_json(self, path: str, params: ParamsDict=None, 
+    async def put_json(self, path: str, params: ParamsDict|None=None, 
         json: JsonMap|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_request(
             Method.PUT, path, params, json, headers
         ))
 
-    async def get_text(self, path: str, params: ParamsDict=None,
+    async def get_text(self, path: str, params: ParamsDict|None=None,
         json: JsonMap|None=None, headers: dict[str, str]|None=None
         ) -> str:
         return await self._text_request(self._create_request(

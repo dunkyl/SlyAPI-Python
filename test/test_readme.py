@@ -22,8 +22,8 @@ class City:
 class OpenWeather(WebAPI):
     base_url = 'https://api.openweathermap.org/data/2.5'
 
-    def __init__(self, api_key: str):
-        super().__init__(UrlApiKey('appid', api_key))
+    async def __init__(self, api_key: str):
+        await super().__init__(UrlApiKey('appid', api_key))
 
     async def city(self,  location: str, mode: Mode=Mode.JSON,
             units: Units=Units.STANDARD,
@@ -42,10 +42,10 @@ class OpenWeather(WebAPI):
 async def test_readme():
 
     key = open('test/apikey.txt', encoding='utf8').read().strip()
-    weather = OpenWeather(key)
+    weather = await OpenWeather(key)
 
     city = await weather.city('New York,NY,US', units=Units.IMPERIAL)
 
     print(F"It's {city.temperature}°F in {city.name}, {city.description}.")
 
-    assert(False)
+    assert city.name == 'New York'
