@@ -47,10 +47,10 @@ class OAuth2User:
             case { # asdict(self)
                 'token': token,
                 'refresh_token': refresh_token,
-                'expires_at': expires_at,
+                'expires_at': datetime() as expires_at,
                 'token_type': token_type,
                 'scopes': scopes
-            } if isinstance(expires_at, datetime):
+            }:
                 return cls(token, refresh_token, expires_at, token_type, scopes)
             case {
                 'access_token': token,

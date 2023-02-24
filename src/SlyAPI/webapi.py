@@ -30,12 +30,12 @@ class WebAPI():
         converted: dict[str, str|int] = {}
         for k, v in params.items():
             match v:
-                case [first, *_]:
-                    if isinstance(first, Enum):
-                        v = (e.value for e in v if e.value is not None)
-                    if len(v) == 0:
-                        continue
-                    converted[k] = self._parameter_list_delimiter.join(v)
+                case [Enum(), *_]: # set or list of enums
+                    values = [e.value for e in v if e.value is not None]
+                    if len(values) > 0:
+                        converted[k] = self._parameter_list_delimiter.join(values)
+                case [_, *_]: # non-empty list or set
+                    converted[k] = self._parameter_list_delimiter.join(map(str, v))
                 case Enum() if v.value is not None:
                     converted[k] = v.value
                 case int() | str():
@@ -114,16 +114,21 @@ class WebAPI():
         return await self._text_request(self._create_request(
             Method.GET, path, params, json, headers
         ))
-
-    @AsyncLazy.wrap
-    async def paginated(self,
+    
+    def paginated(self,
                         path: str,
                         params: ParamsDict,
-                        limit: int | None) -> AsyncGenerator[JsonMap, None]:
+                        limit: int | None) -> AsyncLazy[JsonMap]:
         '''
         Return an awaitable and async iterable over google or twitter-style paginated items.
         You can also await the return value to get the entire list.
         '''
+        return AsyncLazy(self._paginated(path, params, limit))
+
+    async def _paginated(self,
+                        path: str,
+                        params: ParamsDict,
+                        limit: int | None) -> AsyncGenerator[JsonMap, None]:
         result_count = 0
         params = dict(params) if params else {}
 
