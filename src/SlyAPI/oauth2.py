@@ -30,49 +30,51 @@ class OAuth2User:
     expires_at: datetime
     token_type: str = 'Bearer'
     scopes: list[str] = field(default_factory=list)
-
-    def __init__(self, source: str | dict[str, Any], source_path: str | None = None) -> None:
-        match source:
-            case str(): # file path
-                with open(source, 'r') as f:
-                    self.__init__(json.load(f))
-                    self.source_path = source
-            case {
+            
+    @classmethod
+    def from_json_obj(cls, obj: dict[str, Any]) -> 'OAuth2User':
+        '''Read an app from a JSON object'''
+        match obj:
+            case { # JSON / self.to_dict()
                 'token': token,
                 'refresh_token': refresh_token,
-                'expires_at': expires_at_str,
+                'expires_at': str(expires_at_str),
                 'token_type': token_type,
                 'scopes': scopes
-            }: # JSON file
-                self.token = token
-                self.refresh_token = refresh_token
-                self.expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
-                self.token_type = token_type
-                self.source_path = source_path
-                self.scopes = scopes
+            }: 
+                expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
+                return cls(token, refresh_token, expires_at, token_type, scopes)
+            case { # asdict(self)
+                'token': token,
+                'refresh_token': refresh_token,
+                'expires_at': expires_at,
+                'token_type': token_type,
+                'scopes': scopes
+            } if isinstance(expires_at, datetime):
+                return cls(token, refresh_token, expires_at, token_type, scopes)
             case {
                 'access_token': token,
-                'expires_in': expires_str,
+                'expires_in': expires_in_str,
                 'token_type': token_type,
                 **others
             }: # OAuth 2 grant response
-                expiry = (datetime.utcnow() + timedelta(seconds=int(expires_str))).replace(microsecond=0)
-                self.token = token
-                if 'refresh_token' in source:
-                    self.refresh_token = source['refresh_token']
-                else:
-                    print(source)
-                    self.refresh_token = ""
+                expires_in = int(expires_in_str)
+                expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+                refresh_token = others.get('refresh_token', '')
+                scopes = others.get('scope', '').split(' ')
+                if refresh_token is None:
                     warn(
-                        "Google doesn't re-issue refresh tokens when you authorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
+                        "Google doesn't re-issue refresh tokens when youauthorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
                     )
-                self.expires_at = expiry
-                self.token_type = token_type
-                self.source_path = source_path
-                if 'scope' in others:
-                    self.scopes = others['scope'].split(' ')
+                return cls(token, refresh_token, expires_at, token_type, scopes)
             case _:
-                raise ValueError(F"Invalid OAuth2User source: {source}")
+                raise ValueError(F"Unknown format for OAuth2User: {obj}")
+
+    @classmethod
+    def from_json_file(cls, path: str) -> 'OAuth2User':
+        '''Read an app from a JSON file path'''
+        with open(path, 'rb') as f:
+            return cls.from_json_obj(json.load(f))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,13 +84,6 @@ class OAuth2User:
             'token_type': self.token_type,
             'scopes': self.scopes
         }
-
-    def save(self):
-        if self.source_path:
-            with open(self.source_path, 'w') as f:
-                json.dump(self.to_dict(), f, indent=4)
-        else:
-            raise ValueError("Cannot save OAuth2User without a path to save to")
 
 @dataclass
 class OAuth2App:
@@ -249,6 +244,6 @@ async def command_line_oauth2(
             print(await resp.text())
             raise RuntimeError(f'Grant failed: {resp.status}')
         result = await resp.json()
-        user = OAuth2User(result)
+        user = OAuth2User.from_json_obj(result)
 
     return user

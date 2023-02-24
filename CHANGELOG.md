@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Changed
+- `OAuth2App` and `OAuth2User` no longer overload the dataclass constructor
+    - use `.from_json_obj()` or `.from_json_file()` instead
 - `WebAPI` is no longer `AsyncInit`, and should not be awaited
 - `APIKey` renamed to `UrlApiKey`, `APIError` to `ApiError`
 - `Auth.sign_request` renamed to `Auth.sign`
