@@ -30,11 +30,20 @@ class WebAPI():
         converted: dict[str, str|int] = {}
         for k, v in params.items():
             match v:
-                case [Enum(), *_]: # set or list of enums
+                case set() if len(v) > 0: # non-empty set
+                    first  = next(iter(v))
+                    if isinstance(first, Enum): # set of enums
+                        v = cast(set[Enum], v)
+                        values = [e.value for e in v if e.value is not None]
+                        if len(values) > 0:
+                            converted[k] = self._parameter_list_delimiter.join(values)
+                    else:
+                        converted[k] = self._parameter_list_delimiter.join(map(str, v))
+                case [Enum(), *_]: # list of enums
                     values = [e.value for e in v if e.value is not None]
                     if len(values) > 0:
                         converted[k] = self._parameter_list_delimiter.join(values)
-                case [_, *_]: # non-empty list or set
+                case [_, *_]: # non-empty list
                     converted[k] = self._parameter_list_delimiter.join(map(str, v))
                 case Enum() if v.value is not None:
                     converted[k] = v.value
