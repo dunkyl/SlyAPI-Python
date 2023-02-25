@@ -2,6 +2,8 @@ from enum import Enum
 from typing import Any
 from SlyAPI import *
 
+import pytest
+
 class Mode(Enum):
     XML  = 'xml'
     HTML = 'html'
@@ -39,6 +41,7 @@ class OpenWeather(WebAPI):
         }
         return City(await self.get_json('/weather', params))
 
+@pytest.mark.skip(reason="Does side effects (web request)")
 async def test_readme():
 
     key = open('test/apikey.txt', encoding='utf8').read().strip()

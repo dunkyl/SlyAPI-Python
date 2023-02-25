@@ -56,6 +56,14 @@ def test_oauth1_serialize():
 
     assert app1 == app2
 
+    err_not_found = None
+    try:
+        _err_user_not_found = OAuth1User("test/not_exists.json")
+    except FileNotFoundError as e:
+        err_not_found = e
+
+    assert err_not_found is not None
+
 def test_oauth2_serialize():
 
     expiry = datetime.utcnow() + timedelta(seconds=3600)
@@ -68,11 +76,11 @@ def test_oauth2_serialize():
         'scopes': ['read', 'write']
     }
 
-    user1 = OAuth2User(obj)
+    user1 = OAuth2User.from_json_obj(obj)
 
     assert user1.to_dict() == obj
 
-    user2 = OAuth2User({
+    user2 = OAuth2User.from_json_obj({
         'access_token': 'example_token',
         'refresh_token': 'example_token',
         'expires_in': 3600,
@@ -82,25 +90,22 @@ def test_oauth2_serialize():
 
     # user3 = OAuth2User("test/ex_oauth2_user.json")
 
-    assert user1 == user2 # == user3
+    # expires_at will be slightly different, since user2 is created a 
+    # fraction of a second after user1
+    assert user1.token == user2.token
+    assert user1.refresh_token == user2.refresh_token
+    assert (user1.expires_at - user2.expires_at).total_seconds() < 1
+    assert user1.token_type == user2.token_type
+    assert user1.scopes == user2.scopes
 
     err_invalid = None
     try:
-        _err_user_inv = OAuth2User({ "bad": "format" })
-    except Exception as e :
+        _err_user_inv = OAuth2User.from_json_obj({ "bad": "format" })
+    except ValueError as e :
         err_invalid = e
 
     assert err_invalid is not None
     assert isinstance(err_invalid, ValueError)
-
-    err_not_found = None
-    try:
-        _err_user_not_found = OAuth1User("test/not_exists.json")
-    except Exception as e:
-        err_not_found = e
-
-    assert err_not_found is not None
-    assert isinstance(err_not_found, FileNotFoundError)
 
     obj = {
         'id': 'example_client_id',
