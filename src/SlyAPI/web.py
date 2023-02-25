@@ -66,7 +66,7 @@ async def serve_one_request(host: str, port: int, response_body: str) -> dict[st
     server = aiohttp.web.Application()
 
     async def index_handler(request: aiohttp.web.Request):
-        if did_serve_once.locked():
+        if not did_serve_once.locked(): # did_serve_once has already been released
             return aiohttp.web.Response(text="Already handled", status=500)
         for key, value in request.query.items():
             query[key] = value
