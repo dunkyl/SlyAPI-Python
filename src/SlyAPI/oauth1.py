@@ -1,3 +1,7 @@
+'''
+Implemenation of OAuth1.0a as the `Auth` interface
+https://datatracker.ietf.org/doc/html/rfc5849
+'''
 import base64, hmac, secrets
 import json
 from datetime import datetime
@@ -7,12 +11,10 @@ from typing import Any
 from dataclasses import dataclass
 
 import aiohttp
+from aiohttp import ClientSession as Client
 
 from .auth import Auth
-from .web import Method, Request, serve_one_request
-
-# https://datatracker.ietf.org/doc/html/rfc5849
-
+from .web import Method, Request, serve_once
 
 # https://datatracker.ietf.org/doc/html/rfc5849#section-3.6
 def percentEncode(s: str):
@@ -87,37 +89,42 @@ class OAuth1User:
                 raise ValueError(F"Invalid OAuth1User source: {source}")
 
 @dataclass
-class OAuth1(Auth):
+class OAuth1App:
     key: str
     secret: str
 
-    request_uri: str # flow step 1
-    authorize_uri: str # flow step 2
-    access_uri: str # flow step 3
+    request_uri: str # step 1
+    authorize_uri: str # step 2
+    access_uri: str # step 3
 
-    user: OAuth1User | None = None
-
-    def __init__(self, source: str | dict[str, Any], user: OAuth1User | None = None) -> None:
-        match source:
-            case str(): # file path
-                with open(source, 'r') as f:
-                    self.__init__(json.load(f))
-            case { 'key': key, 'secret': secret, 'request_uri': request_uri, 'authorize_uri': authorize_uri, 'access_uri': access_uri }: # dumps
-                self.key = key
-                self.secret = secret
-                self.request_uri = request_uri
-                self.authorize_uri = authorize_uri
-                self.access_uri = access_uri
+    @classmethod
+    def from_json_obj(cls, obj: dict[str, str]) -> 'OAuth1App':
+        '''Read an app from a JSON object'''
+        match obj:
+            case { # asdict(self)
+                'key': key,
+                'secret': secret,
+                'request_uri': request_uri,
+                'authorize_uri': authorize_uri,
+                'access_uri': access_uri
+            }: 
+                return cls(key, secret, request_uri, authorize_uri, access_uri)
             case _:
-                raise ValueError(F"Invalid OAuth1 source: {source}")
-        self.user = user
+                raise ValueError(F"Unknown format for OAuth1App: {obj}")
 
-    async def sign(self, client: aiohttp.ClientSession, request: Request) -> Request:
+    @classmethod
+    def from_json_file(cls, path: str) -> 'OAuth1App':
+        '''Read an app from a JSON file path'''
+        with open(path, 'rb') as f:
+            return cls.from_json_obj(json.load(f))
+        
+    def sign(self, request: Request, user: OAuth1User|None=None) -> Request:
         signing_params = _common_oauth_params(self.key)
-        user_secret = None
-        if self.user is not None:
-            signing_params['oauth_token'] = self.user.key
-            user_secret = self.user.secret
+        if user:
+            signing_params['oauth_token'] = user.key
+            user_secret = user.secret
+        else:
+            user_secret = None
 
         signature = _hmac_sign(request, signing_params, self.secret, user_secret)
 
@@ -130,41 +137,52 @@ class OAuth1(Auth):
         request.headers |= oauth_headers
 
         return request
+    
+@dataclass
+class OAuth1(Auth):
+    app: OAuth1App
+    user: OAuth1User
 
-async def command_line_oauth1(oauth1: OAuth1, redirect_host: str, redirect_port: int, usePin: bool):
+    async def sign(self, client: Client, request: Request) -> Request:
+        return self.app.sign(request, self.user)
+
+async def command_line_oauth1(
+        app: OAuth1App,
+        redirect_host: str,
+        redirect_port: int,
+        usePin: bool
+        ) -> OAuth1User:
     import webbrowser
     import urllib.parse
 
     redirect_uri = F'http://{redirect_host}:{redirect_port}'
 
-    session = aiohttp.ClientSession()
-
     # step 1: get a token to ask the user for authorization
     request = Request(
         Method.POST,
-        oauth1.request_uri,
+        app.request_uri,
         {'oauth_callback': 'oob' if usePin else percentEncode(redirect_uri)}
     )
-    assert oauth1.user is None
-    signed_request = await oauth1.sign(session, request)
+
+    signed_request = app.sign(request)
     
     oauth_token = None
-    async with signed_request.send(session) as resp:
-        content = await resp.text()
-        resp_params = urllib.parse.parse_qs(content)
-        if 'oauth_token' not in resp_params:
-            print(F"Response did not provide authorization:\n{content}")
-            print("\nThis is probably because the credentials for the app are invalid.")
-            await session.close()
-            exit(1)
-            # raise ValueError(F"Response did not provide authorization:\n{content}")
-        oauth_token = resp_params['oauth_token'][0]
-        # oauth_token_secret = resp_params['oauth_token_secret'][0]
-        if resp_params['oauth_callback_confirmed'][0] != 'true':
-            raise ValueError(f"oauth_callback_confirmed was not true")
+    async with aiohttp.ClientSession() as session:
+        async with signed_request.send(session) as resp:
+            content = await resp.text()
+            resp_params = urllib.parse.parse_qs(content)
+            if 'oauth_token' not in resp_params:
+                print(F"Response did not provide authorization:\n{content}")
+                print("\nThis is probably because the credentials for the app are invalid.")
+                exit(1)
+                # raise ValueError(F"Response did not provide authorization:\n{content}")
+            oauth_token = resp_params['oauth_token'][0]
+            # oauth_token_secret = resp_params['oauth_token_secret'][0]
+            if resp_params['oauth_callback_confirmed'][0] != 'true':
+                raise ValueError(f"oauth_callback_confirmed was not true")
 
     # step 2: get the user to authorize the application
-    grant_link = F"{oauth1.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
+    grant_link = F"{app.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
 
     webbrowser.open(grant_link, new=1, autoraise=True)
 
@@ -174,19 +192,17 @@ async def command_line_oauth1(oauth1: OAuth1, redirect_host: str, redirect_port:
         oauth_verifier = pin
 
     else:
-        query = await serve_one_request(redirect_host, redirect_port, '<html><body>You can close this window now.</body></html>')
+        query = await serve_once(redirect_host, redirect_port, 'step2.html')
 
         oauth_token = query['oauth_token']
         oauth_verifier = query['oauth_verifier']
 
     # step 3: exchange the code for access token
     # this step does not use the OAuth authorization headers
-    async with session.request('POST', oauth1.access_uri, params = {
+    async with aiohttp.request('POST', app.access_uri, params = {
         'oauth_token': oauth_token,
         'oauth_verifier': oauth_verifier
     }) as resp:
         content = await resp.text()
         resp_params = urllib.parse.parse_qs(content)
-        oauth1.user = OAuth1User({k: v[0] for k, v in resp_params.items()})
-
-    await session.close()
+        return OAuth1User({k: v[0] for k, v in resp_params.items()})

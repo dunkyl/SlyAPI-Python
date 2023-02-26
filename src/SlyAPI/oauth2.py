@@ -1,3 +1,7 @@
+'''
+Implementation for OAuth2.0 with PKCE as the `Auth` interface
+https://datatracker.ietf.org/doc/html/rfc7636
+'''
 import asyncio
 import base64
 from datetime import datetime, timedelta
@@ -11,7 +15,7 @@ from typing import Any, Callable
 from warnings import warn
 
 from .auth import Auth
-from .web import Request, serve_one_request
+from .web import Request, serve_once
 
 from aiohttp import ClientSession as Client
 
@@ -192,12 +196,13 @@ class OAuth2(Auth):
         return request
          
 async def command_line_oauth2(
-    app: OAuth2App,
-    redirect_host: str,
-    redirect_port: int,
-    scopes: list[str]) -> OAuth2User:
+        app: OAuth2App,
+        redirect_host: str,
+        redirect_port: int,
+        usePin: bool,
+        scopes: list[str]
+        ) -> OAuth2User:
     import webbrowser
-    import os
     import aiohttp
 
     redirect_uri = F'http://{redirect_host}:{redirect_port}'
@@ -205,15 +210,14 @@ async def command_line_oauth2(
     # step 1: get the user to authorize the application
     grant_link, verifier, state = app.auth_url_with_pkce(redirect_uri, '', ' '.join(scopes))
 
-    if not webbrowser.open(grant_link, new=1, autoraise=True):
+    if usePin or not webbrowser.open(grant_link, new=1, autoraise=True):
         print("Please open the following link in your browser:")
         print(grant_link)
         print("Then enter the code below:")
         code = input("code")
     else:
         # step 2: wait for the user to be redirected with the code
-        html = open(os.path.join(os.path.dirname(__file__), 'step2.html'), 'r').read()
-        query = await serve_one_request(redirect_host, redirect_port, html)
+        query = await serve_once(redirect_host, redirect_port, 'step2.html')
 
         # challenge is state[-54:], but state is explicitly ''
         # BUT 54 is LENGTH IN BYTES OF RAW CHALLENGE, *NOT* the length of the base64-encoded challenge

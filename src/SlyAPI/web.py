@@ -57,13 +57,16 @@ class Request:
             params = self.query_params
         return client.request(self.method.value, self.url, json=json, data=data, params=params, headers=headers)
 
-async def serve_one_request(host: str, port: int, response_body: str) -> dict[str, str]:
+async def serve_once(host: str, port: int, html_file: str) -> dict[str, str]:
     import aiohttp.web
+    import os
 
     query: dict[str, str] = {}
     did_serve_once = asyncio.Semaphore(0)
 
     server = aiohttp.web.Application()
+
+    html = open(os.path.join(os.path.dirname(__file__), html_file), 'r').read()
 
     async def index_handler(request: aiohttp.web.Request):
         if not did_serve_once.locked(): # did_serve_once has already been released
@@ -71,7 +74,7 @@ async def serve_one_request(host: str, port: int, response_body: str) -> dict[st
         for key, value in request.query.items():
             query[key] = value
         did_serve_once.release()
-        return aiohttp.web.Response(text=response_body, content_type='text/html')
+        return aiohttp.web.Response(text=html, content_type='text/html')
     server.router.add_get("/", index_handler)
 
     run_task_ = aiohttp.web._run_app(server, host=host, port=port) # type: ignore ## reportPrivateUsage
