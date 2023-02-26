@@ -97,8 +97,15 @@ class WebAPI:
             headers or {},
             json, True
         )
-
-    # TODO: _create_form_request
+    
+    def _create_form_request(self, method: Method, path: str, params: ParamsDict|None=None, 
+        data: Any=None, headers: dict[str, str]|None=None
+        ) -> Request:
+        return Request( method,
+            path, self._convert_parameters(params) if params else {},
+            headers or {},
+            data, False
+        )
 
     async def get_json(self, path: str, params: ParamsDict|None=None,
         json: JsonMap|None=None, headers: dict[str, str]|None=None
@@ -119,6 +126,27 @@ class WebAPI:
         ) -> JsonMap:
         return await self._json_request(self._create_request(
             Method.PUT, path, params, json, headers
+        ))
+    
+    async def get_form(self, path: str, params: ParamsDict|None=None,
+        data: JsonMap|None=None, headers: dict[str, str]|None=None
+        ) -> JsonMap:
+        return await self._json_request(self._create_form_request(
+            Method.GET, path, params, data, headers
+        ))
+
+    async def post_form(self, path: str, params: ParamsDict|None=None,
+        data: JsonMap|None=None, headers: dict[str, str]|None=None
+        ) -> JsonMap:
+        return await self._json_request(self._create_form_request(
+            Method.POST, path, params, data, headers
+        ))
+
+    async def put_form(self, path: str, params: ParamsDict|None=None, 
+        data: JsonMap|None=None, headers: dict[str, str]|None=None
+        ) -> JsonMap:
+        return await self._json_request(self._create_form_request(
+            Method.PUT, path, params, data, headers
         ))
 
     async def get_text(self, path: str, params: ParamsDict|None=None,

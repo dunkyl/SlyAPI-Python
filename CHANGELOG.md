@@ -19,6 +19,7 @@
 - `WebAPI._parameter_list_delimiter` for serialization. Only applies to URL parameters.
 - `NoAuth` implementation of `Auth`
 - `OAuth2` accepts a callback for when user tokens are refreshed.
+- separate `METHOD_form()` methods for form-parameter requests
 
 ### Removed
 - `EnumParam`, `EnumParams` types. Instead, use `set[str]` or `set[T]` where `T` is an enum type.
