@@ -129,21 +129,21 @@ class WebAPI:
         ))
     
     async def get_form(self, path: str, params: ParamsDict|None=None,
-        data: JsonMap|None=None, headers: dict[str, str]|None=None
+        data: Any|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_form_request(
             Method.GET, path, params, data, headers
         ))
 
     async def post_form(self, path: str, params: ParamsDict|None=None,
-        data: JsonMap|None=None, headers: dict[str, str]|None=None
+        data: Any|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_form_request(
             Method.POST, path, params, data, headers
         ))
 
     async def put_form(self, path: str, params: ParamsDict|None=None, 
-        data: JsonMap|None=None, headers: dict[str, str]|None=None
+        data: Any|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_form_request(
             Method.PUT, path, params, data, headers

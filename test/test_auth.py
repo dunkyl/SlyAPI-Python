@@ -9,23 +9,23 @@ def test_oauth1_serialize():
         'secret': 'example_secret'
     }
 
-    user1 = OAuth1User(obj)
+    user1 = OAuth1User(**obj)
 
     assert asdict(user1) == obj
 
-    user2 = OAuth1User({
+    user2 = OAuth1User.from_json_obj({
         'oauth_token': 'example_key',
         'oauth_token_secret': 'example_secret',
         'some_service_add_thing': 'example_thing'
     })
 
-    user3 = OAuth1User("test/ex_oauth1_user.json")
+    user3 = OAuth1User.from_json_file("test/ex_oauth1_user.json")
 
     assert user1 == user2 == user3
 
     err_invalid = None
     try:
-        _err_user_inv = OAuth1User({ "bad": "format" })
+        _err_user_inv = OAuth1User.from_json_obj({ "bad": "format" })
     except Exception as e :
         err_invalid = e
 
@@ -34,7 +34,7 @@ def test_oauth1_serialize():
 
     err_not_found = None
     try:
-        _err_user_not_found = OAuth1User("test/not_exists.json")
+        _err_user_not_found = OAuth1User.from_json_file("test/not_exists.json")
     except Exception as e:
         err_not_found = e
 
@@ -57,7 +57,7 @@ def test_oauth1_serialize():
 
     err_not_found = None
     try:
-        _err_user_not_found = OAuth1User("test/not_exists.json")
+        _err_user_not_found = OAuth1App.from_json_file("test/not_exists.json")
     except FileNotFoundError as e:
         err_not_found = e
 

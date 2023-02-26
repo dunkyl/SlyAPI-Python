@@ -69,24 +69,29 @@ def _common_oauth_params(appKey: str):
 class OAuth1User:
     key: str
     secret: str
-
-    def __init__(self, source: str | dict[str, Any]):
-        match source:
-            case str(): # json file path
-                with open(source) as f:
-                    self.__init__(json.load(f))
-            case { 'key': key, 'secret': secret }: # dumps
-                self.key = key
-                self.secret = secret
-            case {
+            
+    @classmethod
+    def from_json_obj(cls, obj: dict[str, str]) -> 'OAuth1User':
+        '''Read an app from a JSON object'''
+        match obj:
+            case { # asdict(self)
+                'key': key,
+                'secret': secret
+            }:
+                return cls(key, secret)
+            case { # OAuth1 grant
                 'oauth_token': key, 
-                'oauth_token_secret': secret,
-                **_others
-            }: # OAuth1 grant
-                self.key = key
-                self.secret = secret
+                'oauth_token_secret': secret
+            }:
+                return cls(key, secret)
             case _:
-                raise ValueError(F"Invalid OAuth1User source: {source}")
+                raise ValueError(F"Unknown format for OAuth1User: {obj}")
+
+    @classmethod
+    def from_json_file(cls, path: str) -> 'OAuth1User':
+        '''Read an app from a JSON file path'''
+        with open(path, 'rb') as f:
+            return cls.from_json_obj(json.load(f))
 
 @dataclass
 class OAuth1App:
@@ -205,4 +210,5 @@ async def command_line_oauth1(
     }) as resp:
         content = await resp.text()
         resp_params = urllib.parse.parse_qs(content)
-        return OAuth1User({k: v[0] for k, v in resp_params.items()})
+        return OAuth1User.from_json_obj(
+            {k: v[0] for k, v in resp_params.items()})

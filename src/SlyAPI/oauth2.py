@@ -10,7 +10,7 @@ from hashlib import sha256
 import json
 import secrets
 from copy import copy
-from typing import Any, Callable
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from warnings import warn
 
@@ -21,11 +21,15 @@ from aiohttp import ClientSession as Client
 
 import urllib.parse
 
+F_Params = ParamSpec('F_Params')
+F_Return = TypeVar('F_Return')
+
 # currently just a marker and has no effect
-def requires_scopes(*_scopes: str):
+def requires_scopes(*_scopes: str) -> Callable[[Callable[F_Params, F_Return]], Callable[F_Params, F_Return]]:
     'Mark a endpoint as requiring specific scopes to be used'
-    def decorator(func: Callable[[*Any], Any]): return func
-    return decorator
+    def wrap(func: Callable[F_Params, F_Return]) -> Callable[F_Params, F_Return]:
+        return func
+    return wrap
 
 @dataclass
 class OAuth2User:
