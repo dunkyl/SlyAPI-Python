@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from dataclasses import asdict
 from SlyAPI import *
 
-
 def test_oauth1_serialize():
 
     obj = {
@@ -50,9 +49,9 @@ def test_oauth1_serialize():
         'access_uri': 'https://example.com/access_token'
     }
 
-    app1 = OAuth1(obj)
+    app1 = OAuth1App.from_json_obj(obj)
 
-    app2 = OAuth1("test/ex_oauth1.json")
+    app2 = OAuth1App.from_json_file("test/ex_oauth1.json")
 
     assert app1 == app2
 
