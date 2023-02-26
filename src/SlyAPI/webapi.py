@@ -1,3 +1,8 @@
+'''
+Implementation for following classes:
+
+- WebAPI
+'''
 from enum import Enum
 import asyncio
 import json
@@ -8,7 +13,8 @@ from .asyncy import AsyncLazy, unmanage_async_context_sync
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
-class WebAPI():
+class WebAPI:
+    'Base class for web APIs'
     _client: Client
     _client_close_semaphone: asyncio.Semaphore
     _parameter_list_delimiter: str = ','
@@ -16,14 +22,13 @@ class WebAPI():
     base_url: str
     auth: Auth
 
-    def __init__(self, auth:Auth) -> None:
+    def __init__(self, auth: Auth) -> None:
         self._client, self._client_close_semaphone = unmanage_async_context_sync(Client())
         self.auth = auth
 
     def __del__(self):
+        # free up the client session
         self._client_close_semaphone.release()
-        # self._client._connector._close()
-        # self._client._connector = None
 
     # delimit lists and sets, convert enums to their values, and exclude None values
     def _convert_parameters(self, params: ParamsDict) -> dict[str, str|int]:
@@ -52,9 +57,8 @@ class WebAPI():
                 case _: pass # exclude None values
         return converted
 
-    # convert a relative path to an absolute url for this api
     def get_full_url(self, path: str) -> str:
-        '''convert a relative path to an absolute url for this api'''
+        '''Convert a relative path to an absolute url for this API'''
         return self.base_url + path
 
     # authenticate and use the base URL to make a request

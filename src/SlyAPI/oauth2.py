@@ -23,7 +23,7 @@ import urllib.parse
 
 # currently just a marker and has no effect
 def requires_scopes(*_scopes: str):
-    'mark a endpoint as requiring specific scopes to be used'
+    'Mark a endpoint as requiring specific scopes to be used'
     def decorator(func: Callable[[*Any], Any]): return func
     return decorator
 

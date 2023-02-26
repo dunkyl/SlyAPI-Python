@@ -47,9 +47,7 @@ match args:
         Usage:
             SlyAPI scaffold <oauth1|oauth2> <APP JSON>
                 Set up an example JSON file for your client/app.
-
             ---
-
             SlyAPI grant <oauth1|oauth2> <APP JSON> <USER JSON> [scopes...]
                 Grant a single OAuth1/2 user token with the local flow.
                 Scopes only apply to OAuth2.

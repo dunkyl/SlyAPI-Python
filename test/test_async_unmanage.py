@@ -1,5 +1,5 @@
 import asyncio
-from SlyAPI import unmanage_async_context
+from SlyAPI.asyncy import unmanage_async_context
 
 async def test_unmanage_async_context():
 
