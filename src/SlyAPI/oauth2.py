@@ -15,7 +15,7 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from warnings import warn
 
 from .auth import Auth
-from .web import Request, serve_once
+from .web import ApiError, Request, serve_once
 
 from aiohttp import ClientSession as Client
 
@@ -156,7 +156,11 @@ class OAuth2App:
 
         async with client.post(self.token_uri, data=data, headers=headers) as resp:
             if resp.status != 200:
-                raise RuntimeError(f'Refresh failed: {resp.status}')
+                reason = None
+                try:
+                    reason = await resp.text()
+                except Exception: pass
+                raise ApiError(resp.status, reason, resp)
             result = await resp.json()
 
         match result:

@@ -1,8 +1,10 @@
 from enum import Enum
+import sys
 from typing import Any
-from SlyAPI import *
 
 import pytest
+
+from SlyAPI import *
 
 class Mode(Enum):
     XML  = 'xml'
@@ -41,7 +43,15 @@ class OpenWeather(WebAPI):
         }
         return City(await self.get_json('/weather', params))
 
-@pytest.mark.skip(reason="Does side effects (web request)")
+async def test_make_webapi():
+    api = OpenWeather('example_key')
+    assert api.base_url == 'https://api.openweathermap.org/data/2.5'
+
+# Preconditions:
+# - cwd is the project root
+# - internet connection
+# - API key for openweather.org is stored in test/apikey.txt
+@pytest.mark.skipif(sys.gettrace() is None, reason="Does side effects (web request)")
 async def test_readme():
 
     key = open('test/apikey.txt', encoding='utf8').read().strip()

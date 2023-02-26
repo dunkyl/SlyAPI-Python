@@ -28,7 +28,12 @@ class WebAPI:
 
     def __del__(self):
         # free up the client session
-        self._client_close_semaphone.release()
+        try:
+            self._client_close_semaphone.release()
+        except RuntimeError: # event loop was closed
+            if self._client._connector is not None: # type: ignore
+                self._client._connector._close() # type: ignore
+                self._client._connector = None # type: ignore
 
     # delimit lists and sets, convert enums to their values, and exclude None values
     def _convert_parameters(self, params: ParamsDict) -> dict[str, str|int]:
@@ -120,6 +125,14 @@ class WebAPI:
         return await self._json_request(self._create_request(
             Method.POST, path, params, json, headers
         ))
+    
+    async def post_json_empty(self, path: str, params: ParamsDict|None=None,
+        json: JsonMap|None=None, headers: dict[str, str]|None=None
+        ):
+        return await self._empty_request(self._create_request(
+            Method.POST, path, params, json, headers
+        ))
+
 
     async def put_json(self, path: str, params: ParamsDict|None=None, 
         json: JsonMap|None=None, headers: dict[str, str]|None=None
@@ -139,6 +152,13 @@ class WebAPI:
         data: Any|None=None, headers: dict[str, str]|None=None
         ) -> JsonMap:
         return await self._json_request(self._create_form_request(
+            Method.POST, path, params, data, headers
+        ))
+    
+    async def post_form_empty(self, path: str, params: ParamsDict|None=None,
+        data: Any|None=None, headers: dict[str, str]|None=None
+        ):
+        return await self._empty_request(self._create_form_request(
             Method.POST, path, params, data, headers
         ))
 
