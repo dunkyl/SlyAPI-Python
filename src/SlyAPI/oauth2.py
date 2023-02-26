@@ -10,12 +10,12 @@ from hashlib import sha256
 import json
 import secrets
 from copy import copy
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Any, Callable, ParamSpec, TypeVar, cast
 
 from warnings import warn
 
 from .auth import Auth
-from .web import ApiError, Request, serve_once
+from .web import ApiError, Request, TomlMap, serve_once
 
 from aiohttp import ClientSession as Client
 
@@ -40,41 +40,41 @@ class OAuth2User:
     scopes: list[str] = field(default_factory=list)
             
     @classmethod
-    def from_json_obj(cls, obj: dict[str, Any]) -> 'OAuth2User':
+    def from_json_obj(cls, obj: TomlMap) -> 'OAuth2User':
         '''Read an app from a JSON object'''
         match obj:
             case { # JSON / self.to_dict()
-                'token': token,
-                'refresh_token': refresh_token,
+                'token': str(token),
+                'refresh_token': str(refresh_token),
                 'expires_at': str(expires_at_str),
-                'token_type': token_type,
+                'token_type': str(token_type),
                 'scopes': scopes
             }: 
                 expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
-                return cls(token, refresh_token, expires_at, token_type, scopes)
+                return cls(token, refresh_token, expires_at, token_type, cast(list[str], scopes))
             case { # asdict(self)
-                'token': token,
-                'refresh_token': refresh_token,
+                'token': str(token),
+                'refresh_token': str(refresh_token),
                 'expires_at': datetime() as expires_at,
-                'token_type': token_type,
+                'token_type': str(token_type),
                 'scopes': scopes
             }:
-                return cls(token, refresh_token, expires_at, token_type, scopes)
+                return cls(token, refresh_token, expires_at, token_type, cast(list[str], scopes))
             case {
-                'access_token': token,
-                'expires_in': expires_in_str,
-                'token_type': token_type,
+                'access_token': str(token),
+                'expires_in': str(expires_in) | int(expires_in),
+                'token_type': str(token_type),
                 **others
             }: # OAuth 2 grant response
-                expires_in = int(expires_in_str)
+                expires_in = int(expires_in)
                 expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
                 refresh_token = others.get('refresh_token', '')
-                scopes = others.get('scope', '').split(' ')
+                scopes = cast(str, others.get('scope', '')).split(' ')
                 if refresh_token is None:
                     warn(
                         "Google doesn't re-issue refresh tokens when youauthorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
                     )
-                return cls(token, refresh_token, expires_at, token_type, scopes)
+                return cls(token, cast(str, refresh_token), expires_at, token_type, scopes)
             case _:
                 raise ValueError(F"Unknown format for OAuth2User: {obj}")
 
@@ -181,19 +181,25 @@ class OAuth2App:
 
 @dataclass
 class OAuth2(Auth):
+    """Provides the Auth interface implementation for OAuth2"""
     app: OAuth2App
     user: OAuth2User
 
     _refreshed: asyncio.Semaphore
     _refresh_callback: Callable[[OAuth2User], None] | None = None
 
-    def __init__(self, app: OAuth2App, user: OAuth2User,
-        on_refresh: Callable[[OAuth2User], None] | None = None) -> None:
+    def __init__(self, app: OAuth2App|str, user: OAuth2User|str,
+        on_refresh: Callable[[OAuth2User], None] | None = None):
+        """Load an OAuth2 app and user from JSON files or existing objects."""
+        if isinstance(app, str):
+            app = OAuth2App.from_json_file(app)
+        if isinstance(user, str):
+            user = OAuth2User.from_json_file(user)
         self.app = app
         self.user = user
         self._refresh_callback = on_refresh
         self._refreshed = asyncio.Semaphore()
-
+    
     async def sign(self, client: Client, request: Request) -> Request:
         await self._refreshed.acquire()
         if datetime.utcnow() > self.user.expires_at:
@@ -254,7 +260,7 @@ async def command_line_oauth2(
     async with aiohttp.request('POST', app.token_uri, data=grant_data, headers=grant_headers) as resp:
         if resp.status != 200:
             print(await resp.text())
-            raise RuntimeError(f'Grant failed: {resp.status}')
+            raise RuntimeError(F'Grant failed: {resp.status}')
         result = await resp.json()
         user = OAuth2User.from_json_obj(result)
 

@@ -1,16 +1,28 @@
 import asyncio
 from dataclasses import dataclass, field
+import datetime
 from enum import Enum
 import collections.abc
 from aiohttp import ClientSession as Client, ClientResponse as Response
 
-ParamType = int | str | Enum | collections.abc.Set['ParamType'] | collections.abc.Sequence['ParamType'] | None
+ParamType = \
+        int | str | Enum | None \
+        | collections.abc.Set['ParamType'] \
+        | collections.abc.Sequence['ParamType']
 # Mapping is covariant in the value type, allowing for subclasses of Enum as values.
 # dict is invariant in the value type, so we need to use Mapping instead.
 ParamsDict = collections.abc.Mapping[str, ParamType]
 
-JsonType = int | float | bool | str | None | list['JsonType'] | dict[str, 'JsonType']
+JsonScalar = int | float | bool | str | None
+JsonType = JsonScalar | list['JsonType'] | dict[str, 'JsonType']
 JsonMap = dict[str, JsonType]
+
+TomlType = \
+        JsonScalar \
+        | datetime.datetime | datetime.date | datetime.time \
+        | collections.abc.Sequence['TomlType'] \
+        | collections.abc.Mapping[str, 'TomlType']
+TomlMap = collections.abc.Mapping[str, TomlType]
 
 class ApiError(Exception):
     status: int

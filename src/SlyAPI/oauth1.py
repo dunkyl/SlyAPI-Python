@@ -21,7 +21,7 @@ def percentEncode(s: str):
     result = ''
     URLSAFE = b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~'
     for c in s.encode('utf8'):
-        result += chr(c) if c in URLSAFE else f'%{c:02X}'
+        result += chr(c) if c in URLSAFE else F'%{c:02X}'
     return result
 
 # https://datatracker.ietf.org/doc/html/rfc5849#section-3.4.1.3.2
@@ -31,7 +31,7 @@ def paramString(params: dict[str, Any]) -> str:
         percentEncode(k): percentEncode(v) for k, v in params.items()
     }
     for k, v in sorted(encoded.items()):
-        results.append(f'{k}={v}')
+        results.append(F'{k}={v}')
     return '&'.join(results)
 
 # https://datatracker.ietf.org/doc/html/rfc5849#section-3.4.2
@@ -145,11 +145,23 @@ class OAuth1App:
     
 @dataclass
 class OAuth1(Auth):
+    """Provides the Auth interface implementation for OAuth1"""
     app: OAuth1App
     user: OAuth1User
 
+    def __init__(self, app: OAuth1App|str, user: OAuth1User|str):
+        """Load an OAuth1 app and user from JSON files or existing objects."""
+        if isinstance(app, str):
+            app = OAuth1App.from_json_file(app)
+        if isinstance(user, str):
+            user = OAuth1User.from_json_file(user)
+        self.app = app
+        self.user = user
+
     async def sign(self, client: Client, request: Request) -> Request:
         return self.app.sign(request, self.user)
+    
+    
 
 async def command_line_oauth1(
         app: OAuth1App,
@@ -184,7 +196,7 @@ async def command_line_oauth1(
             oauth_token = resp_params['oauth_token'][0]
             # oauth_token_secret = resp_params['oauth_token_secret'][0]
             if resp_params['oauth_callback_confirmed'][0] != 'true':
-                raise ValueError(f"oauth_callback_confirmed was not true")
+                raise ValueError(F"oauth_callback_confirmed was not true")
 
     # step 2: get the user to authorize the application
     grant_link = F"{app.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
