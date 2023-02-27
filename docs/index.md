@@ -14,20 +14,15 @@ Welcome to SlyAPI for Python's documentation!
 
 ```{toctree}
 :hidden:
-:maxdepth: 1
+:maxdepth: 2
 
 tutorial/getting_started.md
 tutorial/usage.md
+tutorial/oauth2.md
 faq.md
 contributing.md
+
+api
 ```
 * {ref}`genindex`
-
-```{autosummary}
-:toctree: generated
-:caption: Reference
-:recursive:
-
-SlyAPI
-```
    

@@ -3,7 +3,7 @@ import sys
 sys.path.insert(0, os.path.abspath('../src'))
 
 project = 'SlyAPI for Python'
-copyright = '2022, Dunkyl 🔣🔣'
+copyright = '2023, Dunkyl 🔣🔣'
 author = 'Dunkyl 🔣🔣'
 
 
@@ -38,13 +38,14 @@ napoleon_use_admonition_for_notes = True
 
 autoclass_content = "both"
 autosummary_generate = True
+numpydoc_show_class_members = False
 
 myst_heading_anchors = 3
 
 autodoc_default_options = {
     "members": True,
     "inherited-members": False,
-    "private-members": True,
+    "private-members": False,
     "show-inheritance": True,
     "undoc-members": True,
     "member-order": "bysource",

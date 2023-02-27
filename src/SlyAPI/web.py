@@ -35,6 +35,14 @@ class ApiError(Exception):
         self.reason = reason
         self.response = response
 
+    @classmethod
+    async def from_resposnse(cls, response: Response) -> 'ApiError':
+        reason = None
+        try:
+            reason = await response.text()
+        except Exception: pass
+        raise cls(response.status, reason, response)
+
     def __str__(self) -> str:
         return super().__str__() + F"\nStatus: {self.status}\nReason: {self.reason}"
 

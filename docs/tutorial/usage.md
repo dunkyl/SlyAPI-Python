@@ -4,6 +4,10 @@
 
 SlyAPI is available though pip:
 
-`$ pip install slyapi`
+```sh
+pip install slyapi
+```
 
-For a development installation, see [here](contributing).
+TODO: Guide for implementations
+
+For a development installation, see [the contribution guide](../contributing.md).

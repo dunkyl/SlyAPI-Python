@@ -17,6 +17,8 @@ from warnings import warn
 from .auth import Auth
 from .web import ApiError, Request, TomlMap, serve_once
 
+
+import aiohttp
 from aiohttp import ClientSession as Client
 
 import urllib.parse
@@ -156,11 +158,7 @@ class OAuth2App:
 
         async with client.post(self.token_uri, data=data, headers=headers) as resp:
             if resp.status != 200:
-                reason = None
-                try:
-                    reason = await resp.text()
-                except Exception: pass
-                raise ApiError(resp.status, reason, resp)
+                raise await ApiError.from_resposnse(resp)
             result = await resp.json()
 
         match result:
@@ -178,6 +176,32 @@ class OAuth2App:
             case _:
                 raise ValueError(F"Invalid OAuth2 refresh response: {result}")
         return new_user
+    
+    async def exchange_code(self, code: str, verifier: str, scopes: list[str], redirect_uri: str, client: Client|None=None) -> OAuth2User:
+        grant_data = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'client_id': self.id,
+            'redirect_uri': redirect_uri,
+            'scope': scopes,
+            'code_verifier': verifier,
+        }
+        grant_headers = {
+            'Authorization': F"Basic {base64.b64encode(F'{self.id}:{self.secret}'.encode('utf-8')).decode('utf-8')}",
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        if client is None:
+            do_req = aiohttp.request
+        else:
+            do_req = client.request
+
+        async with do_req('POST', self.token_uri, data=grant_data, headers=grant_headers) as resp:
+            if resp.status != 200:
+                raise await ApiError.from_resposnse(resp)
+            result = await resp.json()
+            user = OAuth2User.from_json_obj(result)
+
+        return user
 
 @dataclass
 class OAuth2(Auth):
@@ -209,6 +233,8 @@ class OAuth2(Auth):
         request.headers['Authorization'] = F"{self.user.token_type} {self.user.token}"
         return request
          
+    
+
 async def command_line_oauth2(
         app: OAuth2App,
         redirect_host: str,
@@ -217,7 +243,6 @@ async def command_line_oauth2(
         scopes: list[str]
         ) -> OAuth2User:
     import webbrowser
-    import aiohttp
 
     redirect_uri = F'http://{redirect_host}:{redirect_port}'
 
@@ -244,24 +269,4 @@ async def command_line_oauth2(
         code = query['code']
 
     # step 3: exchange the code for access token
-    grant_data = {
-        'grant_type': 'authorization_code',
-        'code': code,
-        'client_id': app.id,
-        'redirect_uri': redirect_uri,
-        'scope': scopes,
-        'code_verifier': verifier,
-    }
-    grant_headers = {
-        'Authorization': F"Basic {base64.b64encode(F'{app.id}:{app.secret}'.encode('utf-8')).decode('utf-8')}",
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    async with aiohttp.request('POST', app.token_uri, data=grant_data, headers=grant_headers) as resp:
-        if resp.status != 200:
-            print(await resp.text())
-            raise RuntimeError(F'Grant failed: {resp.status}')
-        result = await resp.json()
-        user = OAuth2User.from_json_obj(result)
-
-    return user
+    return await app.exchange_code(code, verifier, scopes, redirect_uri)

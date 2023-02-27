@@ -18,8 +18,15 @@ dependencies = [
 ]
 [project.optional-dependencies]
 dev = [
+    # testing
     'pytest',
-    'pytest-asyncio'
+    'pytest-asyncio',
+
+    # docs
+    'myst-parser',
+    'furo',
+    'sphinxcontrib-trio',
+    'sphinx-copybutton'
 ]
 
 [project.urls]

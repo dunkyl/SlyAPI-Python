@@ -8,7 +8,7 @@ import asyncio
 import json
 from typing import Any, AsyncGenerator, cast
 
-from aiohttp import ClientSession as Client, ContentTypeError
+from aiohttp import ClientSession as Client
 from .asyncy import AsyncLazy, unmanage_async_context_sync
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
@@ -72,11 +72,7 @@ class WebAPI:
         signed = await self.auth.sign(self._client, request)
         async with signed.send(self._client) as resp:
             if resp.status >= 400:
-                try:
-                    reason = await resp.text()
-                except ContentTypeError as _:
-                    reason = None
-                raise ApiError(resp.status, reason, resp)
+                raise await ApiError.from_resposnse(resp)
             elif resp.status == 204:
                 return None
             else:

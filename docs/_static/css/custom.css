@@ -2,8 +2,3 @@
 .sig-prename {
     display: none;
 }
-
-/* hide autosummary table */
-ul.simple ~ div.table-wrapper {
-    display: none;
-}
