@@ -29,7 +29,7 @@ class OpenWeather(WebAPI):
     def __init__(self, api_key: str):
         super().__init__(UrlApiKey('appid', api_key))
 
-    async def city(self,  location: str, mode: Mode=Mode.JSON,
+    async def city(self, location: str, mode: Mode=Mode.JSON,
             units: Units=Units.STANDARD,
             lang: str|None = None) -> City:
         '''Get the current weather of a city.
