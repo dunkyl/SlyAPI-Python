@@ -12,7 +12,9 @@ classifiers = [
 dependencies = [
     'aiohttp >= 3.7',
     'aiodns >= 3.0.0',
-    'charset-normalizer >= 3.0.1'
+    'charset-normalizer >= 3.0.1',
+    'pick',
+    'termcolor'
 ]
 [project.optional-dependencies]
 dev = [

@@ -100,4 +100,6 @@ async def serve_once(host: str, port: int, html_file: str) -> dict[str, str]:
     except asyncio.exceptions.CancelledError:
         pass
 
+    await asyncio.sleep(1) # wait for server to close?
+
     return query

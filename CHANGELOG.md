@@ -13,6 +13,7 @@
 - `OAuth2User` no longer keeps a `source_path` and does not do any IO
 
 ### Added
+- Interactive wizard for granting credentials
 - Google flavor app/client JSON files can now be used to create `OAuth2`
 - Success local flow page styling, light/dark
 - `HeaderApiKey` for adding API keys to the `Authorization` header, or any other header
