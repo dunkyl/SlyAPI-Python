@@ -94,13 +94,9 @@ ogp_social_cards = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-html_js_files = [
-    'js/custom.js',
-]
+html_js_files = [ 'js/custom.js', ]
 
-html_css_files = [
-    'css/custom.css',
-]
+html_css_files = [ 'css/custom.css', ]
 
 def env_get_outdated(app, env, added, changed, removed): # type: ignore
     return ['index']
