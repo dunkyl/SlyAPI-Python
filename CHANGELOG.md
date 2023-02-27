@@ -29,3 +29,9 @@
 - `APIObj` did not provide much value as a base class, and could make usage less clear.
 - `Auth.refresh` and `Auth.flow`, which could not be implemented by many authorization schemes.
 - `AsyncInit` base class, which was no longer needed.
+
+---
+
+## [0.2.4] - 2022-02-26
+
+(Before change log)

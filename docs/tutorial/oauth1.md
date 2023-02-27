@@ -7,11 +7,11 @@ Most modern services *do not* require the use of OAuth1, and it is not recommend
 
 As a first step, it may be good to add the two JSON files made later to your `.gitignore`, since they will need to be kept secret. Alternatively, you can keep them outside of version control. Of course, they should be named more appropriately:
 
-```conf
-   # ./.gitignore
-   my_app_credentials.json
-   my_user_credentials.json
-   # ...
+```ini
+# ./.gitignore
+my_app_credentials.json
+my_user_credentials.json
+# ...
 ```
 
 To aquire app credentials, please visit the 3rd party service you are implementing.
@@ -68,6 +68,6 @@ my_auth = OAuth1("my_app_credentials.json", "my_user_credentials.json")
 
 If you are giving strangers the ability to generate credentials with your app, it is probably unreasonable to manually grant each on the command line.
 
-# TODO: programatic grants
+TODO: programatic grants
 
 At this time SlyAPI does not implement other ways to authorize users with OAuth1.

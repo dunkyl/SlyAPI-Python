@@ -2,11 +2,11 @@
 
 As a first step, it may be good to add the two JSON files made later to your `.gitignore`, since they will need to be kept secret. Alternatively, you can keep them outside of version control. Of course, they should be named more appropriately:
 
-```conf
-   # ./.gitignore
-   my_app_credentials.json
-   my_user_credentials.json
-   # ...
+```ini
+# ./.gitignore
+my_app_credentials.json
+my_user_credentials.json
+# ...
 ```
 
 To aquire client/app credentials, please visit the 3rd party service you are implementing.
@@ -68,6 +68,6 @@ If you are giving strangers the ability to generate credentials with your app, i
 
 Instead, you can use methods on `OAuth2App` to integrate an authorization flow with your website or app.
 
-Generate a URL to redirect the user to with [`OAuth2App.auth_url_with_pkce`](SlyAPI.auth.OAuth2App.auth_url_with_pkce), and after recieving and parsing the redirect after the consent page on the 3rd party website, use [`OAuth2App.exchange_code`](SlyAPI.auth.OAuth2App.exchange_code) to get a `OAuth2User` object.
+Generate a URL to redirect the user to with [`OAuth2App.auth_url_with_pkce`](SlyAPI.oauth2.OAuth2App.auth_url_with_pkce), and after recieving and parsing the redirect after the consent page on the 3rd party website, use [`OAuth2App.exchange_code`](SlyAPI.oauth2.OAuth2App.exchange_code) to get a `OAuth2User` object.
 
 It may be appropriate to **set up a callback for refreshed tokens** in the constructor for `OAuth2App` in this case, so that credentials do not need to be refreshed every time!

@@ -73,6 +73,17 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 #
 html_theme = 'furo'
 
+
+html_title = 'SlyAPI for Python'
+html_favicon = 'Sly Logo py.svg'
+html_logo = html_favicon
+
+html_theme_options = {
+    "source_repository": "https://github.com/dunkyl/SlyAPI-Python/",
+    "source_branch": "main",
+    "source_directory": "docs/",
+}
+
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
