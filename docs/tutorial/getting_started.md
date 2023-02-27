@@ -1,11 +1,11 @@
 # Getting Started
 
-SlyAPI is created as a foundation for building manual API clients, usually RESTful ones. If you intend on using any of the following API's specifically, consider depending on these libraries instead:
+SlyAPI is created as a foundation for building manual API clients, usually RESTish ones. If you intend on using any of the following API's specifically, consider depending on these libraries instead:
 
-* [SlyYTDAPI](https://github.com/dunkyl/SlyPyYTDAPI) and [SlyYTAAPI](https://github.com/dunkyl/SlyPyYTAAPI): for the YouTube APIs
-* [SlyTwitter](https://github.com/dunkyl/SlyPyTwitter)
-* [SlySheets](https://github.com/dunkyl/SlyPySheets): for Google Sheets
-* [SlyGmail](https://github.com/dunkyl/SlyPyGmail)
+* [SlyYTDAPI](https://github.com/dunkyl/SlyYTDAPI-Python) and [SlyYTAAPI](https://github.com/dunkyl/SlyYTAAPI-Python): for the YouTube APIs
+* [SlyTwitter](https://github.com/dunkyl/SlyTwitter-Python)
+* [SlySheets](https://github.com/dunkyl/SlySheets-Python): for Google Sheets
+* [SlyGmail](https://github.com/dunkyl/SlyGmail-Python)
 
 If you want to create your own library or module for accessing some other API, you are in the right place.
 
@@ -20,7 +20,7 @@ The [Auth module](SlyAPI.auth.Auth) contains a base class that all authenticatio
 ```py
 # ... somewhere in YourAPIClass
 
-auth = APIKey("key_param_name", secret_key_value)
+auth = UrlApiKey("key_param_name", secret_key_value)
 
 # ...
 ```

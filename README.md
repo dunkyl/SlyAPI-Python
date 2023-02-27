@@ -2,17 +2,15 @@
 
 <!-- elevator begin -->
 
-> 🚧 **This library is an early work in progress! Breaking changes may be frequent.**
-
 > 🐍 For Python 3.10+
 
-No-boilerplate, async and typed web api access with oauth1/2.
+No-boilerplate, async and typed web api access with oauth1/2. 😋
 
 ```sh
 pip install slyapi
 ```
 
-Meant as a foundation for other libraries more than being used directly. It is used by my more specific libraries:
+Meant as a foundation for other libraries more than being used directly. SlyAPI handles authorization and managing requests. It is used by my more specific libraries:
 
 - [SlyYTDAPI](https://github.com/dunkyl/SlyYTDAPI-Python) and [SlyYTAAPI](https://github.com/dunkyl/SlyYTAAPI-Python): for the YouTube APIs
 - [SlyTwitter](https://github.com/dunkyl/SlyTwitter-Python)

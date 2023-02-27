@@ -63,11 +63,3 @@ from SlyAPI import *
 my_auth = OAuth1("my_app_credentials.json", "my_user_credentials.json")
 ```
 `WebAPI` implementations which use OAuth1 should take an instance of `OAuth1` in their constructor.
-
-## Many grants for many users
-
-If you are giving strangers the ability to generate credentials with your app, it is probably unreasonable to manually grant each on the command line.
-
-TODO: programatic grants
-
-At this time SlyAPI does not implement other ways to authorize users with OAuth1.

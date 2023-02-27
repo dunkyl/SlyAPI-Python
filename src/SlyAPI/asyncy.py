@@ -87,6 +87,7 @@ class AsyncLazy(Generic[T]):
         return [t async for t in self.gen]
 
     def __await__(self) -> Generator[Any, None, list[T]]:
+        '''Yield the aggregate results of the generator as a list.'''
         return self._items().__await__()
 
     def map(self, f: Callable[[T], U]) -> 'AsyncTrans[U]':
@@ -118,6 +119,7 @@ class AsyncTrans(Generic[U]):
         return (self.mapping(t) async for t in self.gen)
 
     def __await__(self) -> Generator[Any, None, list[U]]:
+        '''Yield the aggregate results of the transformed generator as a list.'''
         return self._items().__await__()
 
     async def _items(self) -> list[U]:

@@ -1,6 +1,6 @@
 [project]
 name = "SlyAPI"
-version = "0.4.2"
+version = "0.4.3"
 description = "No-boilerplate, async and typed web api access with oauth1/2."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,7 +26,8 @@ dev = [
     'myst-parser',
     'furo',
     'sphinxcontrib-trio',
-    'sphinx-copybutton'
+    'sphinx-copybutton',
+    'sphinxext-opengraph'
 ]
 
 [project.urls]

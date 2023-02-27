@@ -26,14 +26,14 @@ faq.md
 :caption: API Reference
 :hidden:
 
-api
+ref
 ```
 
 ```{toctree}
 :caption: Development
 :hidden:
    
-include_changelog.md
+release_notes.md
 contributing.md
 include_license.md
 ```

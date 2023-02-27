@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.4.3] - 2023-02-26
+
 ### Changed
 - `OAuth2App` and `OAuth2User` no longer overload the dataclass constructor
     - use `.from_json_obj()` or `.from_json_file()` instead
@@ -30,8 +34,7 @@
 - `Auth.refresh` and `Auth.flow`, which could not be implemented by many authorization schemes.
 - `AsyncInit` base class, which was no longer needed.
 
----
-
 ## [0.2.4] - 2022-02-26
 
-(Before change log)
+### Added
+- `OAuth1` and `OAuth1User` constructors accept a string as a path to a JSON file.

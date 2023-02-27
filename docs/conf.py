@@ -16,13 +16,14 @@ extensions = [
     'myst_parser',
     'sphinxcontrib_trio',
     'sphinx_copybutton',
-
+    'sphinxext.opengraph',
     "sphinx.ext.intersphinx",
     'sphinx.ext.autodoc',
     'sphinx.ext.duration',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
-    'sphinx.ext.viewcode'
+    'sphinx.ext.viewcode',
+    'sphinx.ext.coverage',
 ]
 
 intersphinx_mapping = {
@@ -49,7 +50,7 @@ autodoc_default_options = {
     "show-inheritance": True,
     "undoc-members": True,
     "member-order": "bysource",
-    "special-members": "__init__, __await__",
+    "special-members": "__await__",
 }
 
 autodoc_member_order = 'bysource'
@@ -82,6 +83,10 @@ html_theme_options = {
     "source_repository": "https://github.com/dunkyl/SlyAPI-Python/",
     "source_branch": "main",
     "source_directory": "docs/",
+}
+
+ogp_social_cards = {
+    "enable": False
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

@@ -2,7 +2,7 @@ API Reference
 ===
 
 .. autosummary::
-    :toctree: api
+    :toctree: ref
     :caption: API Reference
     :recursive:
 

@@ -34,8 +34,12 @@ for (let desc of descs) {
             let generic_arg = first.children[1].children[0].textContent;
             elem.textContent = `[ ${generic_arg} ]`;
             desc.parentElement.children[0].appendChild(elem);
-        } // TODO: case for remove RETURN TYPE: None
-
+        }
+    } else if (first && first.textContent == "None" ) {
+        if (desc.previousSibling.previousSibling.firstChild.textContent == "Return type") {
+            desc.previousSibling.previousSibling.remove();
+            desc.remove();
+        }
     }
 }
 
