@@ -107,6 +107,13 @@ class WebAPI:
             headers or {},
             data, False
         )
+    
+    async def delete_json(self, path: str, params: ParamsDict|None=None, 
+        json: Any=None, headers: dict[str, str]|None=None
+        ):
+        await self._json_request(self._create_request(
+            Method.DELETE, path, params, json, headers
+        ))
 
     async def get_json(self, path: str, params: ParamsDict|None=None,
         json: JsonMap|None=None, headers: dict[str, str]|None=None

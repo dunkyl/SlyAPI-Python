@@ -4,6 +4,11 @@
 
 ---
 
+## [0.4.4] - 2023-03-02
+
+### Added
+- `delete_json` (for HTTP DELETE) method
+
 ## [0.4.3] - 2023-02-26
 
 ### Changed

@@ -1,6 +1,6 @@
 [project]
 name = "SlyAPI"
-version = "0.4.3"
+version = "0.4.4"
 description = "No-boilerplate, async and typed web api access with oauth1/2."
 readme = "README.md"
 requires-python = ">=3.10"
