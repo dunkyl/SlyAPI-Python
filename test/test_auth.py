@@ -70,7 +70,7 @@ def test_oauth2_serialize():
     obj = {
         'token': 'example_token',
         'refresh_token': 'example_token',
-        'expires_at': expiry.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        'expires_at': expiry.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         'token_type': 'Bearer',
         'scopes': ['read', 'write']
     }

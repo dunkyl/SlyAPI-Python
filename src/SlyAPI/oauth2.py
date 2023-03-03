@@ -51,8 +51,11 @@ class OAuth2User:
                 'expires_at': str(expires_at_str),
                 'token_type': str(token_type),
                 'scopes': scopes
-            }: 
-                expires_at = datetime.fromisoformat(expires_at_str)
+            }:
+                try:
+                    expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+                except ValueError:
+                    expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
                 return cls(token, refresh_token, expires_at, token_type, cast(list[str], scopes))
             case { # asdict(self)
                    # TODO: eliminate this case?
@@ -75,10 +78,10 @@ class OAuth2User:
                 scopes = cast(str, others.get('scope', '')).split(' ')
                 if refresh_token is None:
                     warn(
-                        "Google doesn't re-issue refresh tokens when youauthorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
+                        "Google doesn't re-issue refresh tokens when you authorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
                     )
                 return cls(token, cast(str, refresh_token), expires_at, token_type, scopes)
-            case {
+            case { # mastodon
                 'access_token': str(token),
                 'token_type': str(token_type),
                 'scope': str(scopes),
@@ -99,7 +102,7 @@ class OAuth2User:
         return {
             'token': self.token,
             'refresh_token': self.refresh_token,
-            'expires_at': self.expires_at.isoformat()+'Z',
+            'expires_at': self.expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             'token_type': self.token_type,
             'scopes': self.scopes
         }
