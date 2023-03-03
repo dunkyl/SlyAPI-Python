@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `WebAPI._get_, _post, _put, _patch, _delete` methods with serialization and deserialization
+    - Return type can have `from_json` classmethod for deserialization. None for no deserialization, str for text content, or a single-parameter constructor which will get the JSON response object.
+    - Data parameter can have `to_json` method for serialization, asdict for dataclasses, or passed as-is.
+    - `TypedDict` is one good way to define the JSON response type, and will work without any extra code.
+- `WebAPI._use_form_data` is used for the above methods.
+
 ---
 
 ## [0.4.4] - 2023-03-02

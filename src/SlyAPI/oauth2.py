@@ -52,9 +52,10 @@ class OAuth2User:
                 'token_type': str(token_type),
                 'scopes': scopes
             }: 
-                expires_at = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%SZ')
+                expires_at = datetime.fromisoformat(expires_at_str)
                 return cls(token, refresh_token, expires_at, token_type, cast(list[str], scopes))
             case { # asdict(self)
+                   # TODO: eliminate this case?
                 'token': str(token),
                 'refresh_token': str(refresh_token),
                 'expires_at': datetime() as expires_at,
@@ -77,6 +78,14 @@ class OAuth2User:
                         "Google doesn't re-issue refresh tokens when youauthorize a new token from the same application for the same user. That might be the case here, since a token grant was recieved without `refresh_token`! Refreshing these credentials will fail, consider revoking access at https://myaccount.google.com/permissions and re-authorizing."
                     )
                 return cls(token, cast(str, refresh_token), expires_at, token_type, scopes)
+            case {
+                'access_token': str(token),
+                'token_type': str(token_type),
+                'scope': str(scopes),
+                'created_at': int(_stamp)
+            }:
+                expires_at = datetime(2400, 1, 1) # TODO: does this never expire?
+                return cls(token, '', expires_at, token_type, scopes.split(' '))
             case _:
                 raise ValueError(F"Unknown format for OAuth2User: {obj}")
 
@@ -90,7 +99,7 @@ class OAuth2User:
         return {
             'token': self.token,
             'refresh_token': self.refresh_token,
-            'expires_at': self.expires_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'expires_at': self.expires_at.isoformat()+'Z',
             'token_type': self.token_type,
             'scopes': self.scopes
         }

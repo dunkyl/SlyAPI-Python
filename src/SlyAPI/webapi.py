@@ -3,28 +3,34 @@ Implementation for following classes:
 
 - WebAPI
 '''
+from dataclasses import asdict, is_dataclass
 from enum import Enum
 import asyncio
 import json
-from typing import Any, AsyncGenerator, cast
+from typing import Any, AsyncGenerator, cast, TypeVar, overload
 
 from aiohttp import ClientSession as Client
 from .asyncy import AsyncLazy, unmanage_async_context_sync
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
+T = TypeVar('T')
+
 class WebAPI:
     'Base class for web APIs'
     _client: Client
     _client_close_semaphone: asyncio.Semaphore
+    _use_form_data: bool
+
     _parameter_list_delimiter: str = ','
 
     base_url: str
     auth: Auth
 
-    def __init__(self, auth: Auth) -> None:
+    def __init__(self, auth: Auth, use_form_data: bool = False) -> None:
         self._client, self._client_close_semaphone = unmanage_async_context_sync(Client())
         self.auth = auth
+        self._use_form_data = use_form_data
 
     def __del__(self):
         # free up the client session
@@ -56,6 +62,7 @@ class WebAPI:
                 case [_, *_]: # non-empty list
                     converted[k] = self._parameter_list_delimiter.join(map(str, v))
                 case Enum() if v.value is not None:
+                    print(F"Converting enum {v} to {v.value}")
                     converted[k] = v.value
                 case int() | str():
                     converted[k] = v
@@ -107,6 +114,85 @@ class WebAPI:
             headers or {},
             data, False
         )
+    
+    @overload
+    async def _request(self, method: Method, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None:
+        ...
+
+    @overload
+    async def _request(self, method: Method, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T:
+        ...
+    
+    async def _request(self, method: Method, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        if data and hasattr(data, 'to_json'):
+            data = data.json()
+        elif data and is_dataclass(data):
+            data = asdict(data)
+        print(data)
+        
+        req = await self.auth.sign(self._client,
+            Request( method, self.get_full_url(path), 
+                self._convert_parameters(params) if params else {},
+                headers or {},
+                data, not self._use_form_data
+            ))
+        async with req.send(self._client) as resp:
+            if resp.status >= 400:
+                raise await ApiError.from_resposnse(resp)
+            if returns is None:
+                return None
+            elif returns == str:
+                return await resp.text() # type: ignore ## T is str
+            else:
+                obj = await resp.json()
+                if hasattr(returns, 'from_json'):
+                    return getattr(returns, 'from_json')(obj)
+                else:
+                    return returns(obj)
+    
+    @overload
+    async def _get(self, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None: ...
+
+    @overload
+    async def _post(self, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None: ...
+
+    @overload
+    async def _put(self, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None: ...
+
+    @overload
+    async def _patch(self, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None: ...
+
+    @overload
+    async def _delete(self, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None: ...
+    
+    @overload
+    async def _get(self, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T: ...
+
+    @overload
+    async def _post(self, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T: ...
+    @overload
+    async def _put(self, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T: ...
+
+    @overload
+    async def _patch(self, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T: ...
+
+    @overload
+    async def _delete(self, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T: ...
+            
+    async def _get(self, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        return await self._request(Method.GET, returns, path, params, data, headers)
+    
+    async def _post(self, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        return await self._request(Method.POST, returns, path, params, data, headers)
+    
+    async def _put(self, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        return await self._request(Method.PUT, returns, path, params, data, headers)
+    
+    async def _patch(self, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        return await self._request(Method.PATCH, returns, path, params, data, headers)
+    
+    async def _delete(self, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        return await self._request(Method.DELETE, returns, path, params, data, headers)
     
     async def delete_json(self, path: str, params: ParamsDict|None=None, 
         json: Any=None, headers: dict[str, str]|None=None

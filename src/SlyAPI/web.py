@@ -14,7 +14,7 @@ ParamType = \
 ParamsDict = collections.abc.Mapping[str, ParamType]
 
 JsonScalar = int | float | bool | str | None
-JsonType = JsonScalar | list['JsonType'] | dict[str, 'JsonType']
+JsonType = JsonScalar | collections.abc.Sequence['JsonType'] | collections.abc.Mapping[str, 'JsonType']
 JsonMap = dict[str, JsonType]
 
 TomlType = \
