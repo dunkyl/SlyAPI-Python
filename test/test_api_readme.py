@@ -1,10 +1,12 @@
 from enum import Enum
-import sys
+import sys, os
 from typing import Any
 
 import pytest
 
 from SlyAPI import *
+
+test_dir = os.path.dirname(__file__)
 
 class Mode(Enum):
     XML  = 'xml'
@@ -55,7 +57,7 @@ async def test_make_webapi():
 @pytest.mark.skipif(sys.gettrace() is None, reason="Does side effects (web request)")
 async def test_readme():
 
-    key = open('test/apikey.txt', encoding='utf8').read().strip()
+    key = open(F'{test_dir}/apikey.txt', encoding='utf8').read().strip()
     weather = OpenWeather(key)
 
     city = await weather.city('New York,NY,US', units=Units.IMPERIAL)
