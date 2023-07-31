@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] - 2023-07-30
+
 ### Changes/Improvements
 - `WebAPI` no longer needs to be constructed after an event loop is running.
 - `unmanage_async_context_sync` renamed to `unmanage_async_context`
@@ -12,9 +16,7 @@
 ### Removed
 - unused `run_sync_ensured`
 
----
-
-## [0.4.5]
+## [0.4.5] - 2023-03-03
 
 ### Added
 
