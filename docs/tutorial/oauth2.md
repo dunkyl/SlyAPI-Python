@@ -13,7 +13,6 @@ To aquire client/app credentials, please visit the 3rd party service you are imp
 
 Links to some places to get OAuth2 credentials:
 - [Google Cloud Console](https://console.cloud.google.com)
-- [Twitter Developers](https://dev.twitter.com)
 - [Discord Developers](https://discord.com/developers)
 
 After you have the credentials, save them in a protected JSON file.
