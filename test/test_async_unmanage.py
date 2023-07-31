@@ -6,6 +6,7 @@ async def test_unmanage_async_context():
     class FiveManager:
         was_entered = False
         was_exited = False
+        five_calculated = None
 
         async def __aenter__(self):
             self.was_entered = True
@@ -22,14 +23,16 @@ async def test_unmanage_async_context():
     assert five_factory_managed.was_exited
 
     five_factory_unmanaged = FiveManager()
-    five, release = await unmanage_async_context(five_factory_unmanaged)
+    five_once_entered, close_ctx = unmanage_async_context(five_factory_unmanaged)
+
+    five = await five_once_entered # yield to background context to run __aenter__
 
     assert five == 5
     assert five_factory_unmanaged.was_entered
     assert not five_factory_unmanaged.was_exited
 
-    release.release()
+    close_ctx.set()
 
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0) # yield to background context to run __aexit__
 
     assert five_factory_unmanaged.was_exited

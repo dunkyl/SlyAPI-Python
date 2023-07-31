@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Changes/Improvements
+- `WebAPI` no longer needs to be constructed after an event loop is running.
+- `unmanage_async_context_sync` renamed to `unmanage_async_context`
+    - unused async version removed
+    - returns a `asyncio.Event` instead of `asyncio.Semaphore` for releasing context
+    - returns a `asyncio.Task[T]` instead of `T` and does not assume `__aenter__` returns self
+
+### Removed
+- unused `run_sync_ensured`
+
+---
+
+## [0.4.5]
+
 ### Added
 
 - `WebAPI._get_, _post, _put, _patch, _delete` methods with serialization and deserialization
@@ -9,8 +23,6 @@
     - Data parameter can have `to_json` method for serialization, asdict for dataclasses, or passed as-is.
     - `TypedDict` is one good way to define the JSON response type, and will work without any extra code.
 - `WebAPI._use_form_data` is used for the above methods.
-
----
 
 ## [0.4.4] - 2023-03-02
 

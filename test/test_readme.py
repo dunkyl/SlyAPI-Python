@@ -51,6 +51,7 @@ async def test_make_webapi():
 # - cwd is the project root
 # - internet connection
 # - API key for openweather.org is stored in test/apikey.txt
+# Skipped by default unless run in debugger
 @pytest.mark.skipif(sys.gettrace() is None, reason="Does side effects (web request)")
 async def test_readme():
 

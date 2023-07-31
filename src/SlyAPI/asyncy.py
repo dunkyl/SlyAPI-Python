@@ -10,65 +10,34 @@ U = TypeVar('U')
 T_Params = ParamSpec("T_Params")
 U_Params = ParamSpec("U_Params")
 
-def run_sync_ensured(corofn: Callable[[], Coroutine[Any, None, None]]) -> None:
-    '''Run a coroutine, regardless of whether there is already an event loop.'''
-    try:
-        event_loop = asyncio.get_running_loop()
-        asyncio.create_task(corofn())
-    except RuntimeError:
-        event_loop = asyncio.get_event_loop_policy().get_event_loop()
-        event_loop.run_until_complete(corofn())
-
 unmanaged_tasks: set[Any] = set()
-async def unmanage_async_context(context: AbstractAsyncContextManager[T]) -> tuple[T, asyncio.Semaphore]:
+def unmanage_async_context(context: AbstractAsyncContextManager[T]) -> tuple[asyncio.Task[T], asyncio.Event]:
     '''
     Extract an async context manager's value without manually managing its lifetime.
-    The context manager is leaked and will only be cleaned up when the program exits.
-    '''
-    MISSING = object()
-    extracted = MISSING
-    extracted_semaphore = asyncio.Semaphore(0)
-    closed_semaphore = asyncio.Semaphore(0)
-    async def background():
-        nonlocal extracted
-        async with context as inner:
-            extracted = inner
-            extracted_semaphore.release()
-            print(f'Released semaphore for {context}')
-            await closed_semaphore.acquire()
-    task = asyncio.create_task(background())
-    unmanaged_tasks.add(task)
-    task.add_done_callback(unmanaged_tasks.remove)
-    await extracted_semaphore.acquire()
-    if extracted is MISSING:
-        raise RuntimeError('Async context manager did not return a value.')
-    else:
-        return (
-            extracted, # type: ignore
-            closed_semaphore )
+    The context manager is entered until `set()` is called on the returned event.
 
-def unmanage_async_context_sync(context: AbstractAsyncContextManager[T]) -> tuple[T, asyncio.Semaphore]:
+    thats it *unmanages your async context manager*
     '''
-    Extract an async context manager's value without manually managing its lifetime.
-    The context manager is leaked and will only be cleaned up when the program exits.
-    '''
-    MISSING = object()
-    extracted = context
-    closed_semaphore = asyncio.Semaphore(0)
+    close_context = asyncio.Event()
+    fut_T_ready = asyncio.Event()
+    fut_T = None
     async def background():
-        nonlocal extracted
-        async with context as _inner:
-            print(f'Released semaphore for {context}')
-            await closed_semaphore.acquire()
+        async with context as inner:
+            nonlocal fut_T
+            fut_T = inner
+            fut_T_ready.set()
+            # print(f'Released event for {context}')
+            await close_context.wait()
     task = asyncio.create_task(background())
     unmanaged_tasks.add(task)
     task.add_done_callback(unmanaged_tasks.remove)
-    if extracted is MISSING:
-        raise RuntimeError('Async context manager did not return a value.')
-    else:
-        return (
-            extracted, # type: ignore
-            closed_semaphore )
+    async def aenter_wait():
+        await fut_T_ready.wait()
+        assert fut_T is not None
+        return fut_T
+    return (
+        asyncio.create_task(aenter_wait()), # type: ignore
+        close_context )
 
 class AsyncLazy(Generic[T]):
     '''

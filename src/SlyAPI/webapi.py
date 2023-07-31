@@ -5,12 +5,11 @@ Implementation for following classes:
 '''
 from dataclasses import asdict, is_dataclass
 from enum import Enum
-import asyncio
 import json
 from typing import Any, AsyncGenerator, cast, TypeVar, overload
 
 from aiohttp import ClientSession as Client
-from .asyncy import AsyncLazy, unmanage_async_context_sync
+from .asyncy import AsyncLazy, unmanage_async_context
 from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
@@ -18,8 +17,6 @@ T = TypeVar('T')
 
 class WebAPI:
     'Base class for web APIs'
-    _client: Client
-    _client_close_semaphone: asyncio.Semaphore
     _use_form_data: bool
 
     _parameter_list_delimiter: str = ','
@@ -27,19 +24,29 @@ class WebAPI:
     base_url: str
     auth: Auth
 
+    _maybe_client: Client | None
+    @property
+    def _client(self) -> Client:
+        if self._maybe_client is None:
+            self._maybe_client = Client()
+            # Client.__aenter__ returns Client
+            (_, self._client_close_context) = unmanage_async_context(self._maybe_client)
+        return self._maybe_client
+
     def __init__(self, auth: Auth, use_form_data: bool = False) -> None:
-        self._client, self._client_close_semaphone = unmanage_async_context_sync(Client())
+        self._maybe_client = None
         self.auth = auth
         self._use_form_data = use_form_data
 
     def __del__(self):
-        # free up the client session
-        try:
-            self._client_close_semaphone.release()
-        except RuntimeError: # event loop was closed
-            if self._client._connector is not None: # type: ignore
-                self._client._connector._close() # type: ignore
-                self._client._connector = None # type: ignore
+        # free up the client session if its been created
+        if hasattr(self, '_client_close_context'):
+            try:
+                self._client_close_context.set()
+            except RuntimeError: # event loop was closed
+                if self._client._connector is not None: # type: ignore
+                    self._client._connector._close() # type: ignore
+                    self._client._connector = None # type: ignore
 
     # delimit lists and sets, convert enums to their values, and exclude None values
     def _convert_parameters(self, params: ParamsDict) -> dict[str, str|int]:
@@ -62,7 +69,7 @@ class WebAPI:
                 case [_, *_]: # non-empty list
                     converted[k] = self._parameter_list_delimiter.join(map(str, v))
                 case Enum() if v.value is not None:
-                    print(F"Converting enum {v} to {v.value}")
+                    # print(F"Converting enum {v} to {v.value}")
                     converted[k] = v.value
                 case int() | str():
                     converted[k] = v
@@ -122,21 +129,24 @@ class WebAPI:
     @overload
     async def _request(self, method: Method, returns: type[T], path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T:
         ...
-    
-    async def _request(self, method: Method, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        
+
+    async def _request_context(self, method: Method, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None):
         if data and hasattr(data, 'to_json'):
             data = data.json()
         elif data and is_dataclass(data):
             data = asdict(data)
-        print(data)
-        
         req = await self.auth.sign(self._client,
             Request( method, self.get_full_url(path), 
                 self._convert_parameters(params) if params else {},
                 headers or {},
                 data, not self._use_form_data
             ))
-        async with req.send(self._client) as resp:
+        return req.send(self._client)
+
+    async def _request(self, method: Method, returns: type[T]|None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> T|None:
+        ctx = await self._request_context(method, path, params, data, headers)
+        async with ctx as resp:
             if resp.status >= 400:
                 raise await ApiError.from_resposnse(resp)
             if returns is None:
@@ -280,7 +290,8 @@ class WebAPI:
                         params: ParamsDict,
                         limit: int | None) -> AsyncGenerator[JsonMap, None]:
         result_count = 0
-        params = dict(params) if params else {}
+
+        params = dict(params or {})
 
         while True:
             page = await self.get_json(path, params)
