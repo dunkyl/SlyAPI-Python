@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 import datetime
 from enum import Enum
 import collections.abc
-from aiohttp import ClientSession as Client, ClientResponse as Response
+from typing import TypeAlias
+from aiohttp import ClientSession as Client, ClientResponse as Response, FormData
 
 ParamType = \
         int | str | Enum | None \
@@ -13,9 +14,12 @@ ParamType = \
 # dict is invariant in the value type, so we need to use Mapping instead.
 ParamsDict = collections.abc.Mapping[str, ParamType]
 
-JsonScalar = int | float | bool | str | None
-JsonType = JsonScalar | collections.abc.Sequence['JsonType'] | collections.abc.Mapping[str, 'JsonType']
-JsonMap = dict[str, JsonType]
+JsonScalar: TypeAlias = int | float | bool | str | None
+JsonType: TypeAlias = JsonScalar | list['JsonType'] | dict[str, 'JsonType']
+JsonMap: TypeAlias = dict[str, JsonType]
+
+JsonTypeCo: TypeAlias = JsonScalar | collections.abc.Sequence['JsonTypeCo'] | collections.abc.Mapping[str, 'JsonTypeCo']
+JsonMapCo: TypeAlias = collections.abc.Mapping[str, JsonTypeCo]
 
 TomlType = \
         JsonScalar \
@@ -59,7 +63,7 @@ class Request:
     url: str
     query_params: dict[str, str|int]= field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
-    data: JsonMap = field(default_factory=dict)
+    data: JsonMap|FormData = field(default_factory=dict)
     data_is_json: bool = False
 
     def send(self, client: Client):

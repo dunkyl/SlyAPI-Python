@@ -15,7 +15,7 @@ from typing import Any, Callable, ParamSpec, TypeVar, cast
 from warnings import warn
 
 from .auth import Auth
-from .web import ApiError, Request, TomlMap, serve_once
+from .web import ApiError, JsonMap, Request, TomlMap, serve_once
 
 
 import aiohttp
@@ -115,20 +115,20 @@ class OAuth2App:
     token_uri: str # flow step 3
 
     @classmethod
-    def from_json_obj(cls, obj: dict[str, str]) -> 'OAuth2App':
+    def from_json_obj(cls, obj: JsonMap) -> 'OAuth2App':
         '''Read an app from a JSON object, either from the Google Console JSON format or a set of kwargs'''
         match obj:
             case { # to_dict(self)
-                'id': id,
-                'secret': secret,
-                'auth_uri': auth_uri,
-                'token_uri': token_uri
+                'id': str(id),
+                'secret': str(secret),
+                'auth_uri': str(auth_uri),
+                'token_uri': str(token_uri)
             } | { # Google JSON
                 'web': {
-                    'client_id': id,
-                    'client_secret': secret,
-                    'auth_uri': auth_uri,
-                    'token_uri': token_uri
+                    'client_id': str(id),
+                    'client_secret': str(secret),
+                    'auth_uri': str(auth_uri),
+                    'token_uri': str(token_uri)
                 }
             }: 
                 return cls(id, secret, auth_uri, token_uri)

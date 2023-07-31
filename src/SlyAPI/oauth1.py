@@ -37,7 +37,10 @@ def paramString(params: dict[str, Any]) -> str:
 # https://datatracker.ietf.org/doc/html/rfc5849#section-3.4.2
 def _hmac_sign(request: Request, signing_params: dict[str, Any], appSecret: str, userSecret: str|None = None) -> str:
         if not request.data_is_json:
-            all_params = { **request.data }
+            if isinstance(request.data, dict):
+                all_params = { **request.data }
+            else:
+                raise TypeError(F"Expected dict, got {type(request.data)}")
         else:
             all_params = {}
         all_params |= request.query_params | signing_params
@@ -196,7 +199,7 @@ async def command_line_oauth1(
             oauth_token = resp_params['oauth_token'][0]
             # oauth_token_secret = resp_params['oauth_token_secret'][0]
             if resp_params['oauth_callback_confirmed'][0] != 'true':
-                raise ValueError(F"oauth_callback_confirmed was not true")
+                raise ValueError("oauth_callback_confirmed was not true")
 
     # step 2: get the user to authorize the application
     grant_link = F"{app.authorize_uri}?{urllib.parse.urlencode({'oauth_token': oauth_token})}"
