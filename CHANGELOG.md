@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changes
+- `AsyncLazy.map` returns `AsyncLazy` so that it can be mapped more than once.
+- `AsyncTrans` is now just a type alias for `AsyncLazy`
+
 ---
 
 ## [0.5.0] - 2023-07-30

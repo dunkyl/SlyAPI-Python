@@ -6,7 +6,6 @@ async def test_unmanage_async_context():
     class FiveManager:
         was_entered = False
         was_exited = False
-        five_calculated = None
 
         async def __aenter__(self):
             self.was_entered = True
