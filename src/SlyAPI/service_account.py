@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import asyncio
 import json
 
@@ -42,7 +42,7 @@ class ServiceAccount:
             obj = await req.json()
             return ServiceGrant(
                 obj["access_token"],
-                datetime.now() + timedelta(seconds = float(obj["expires_in"])),
+                datetime.now(timezone.utc) + timedelta(seconds = float(obj["expires_in"])),
                 obj["token_type"]
             )
 
@@ -86,7 +86,7 @@ class OAuth2ServiceAccount(Auth):
 
     async def sign(self, client: Client, request: Request) -> Request:
         await self._refreshed.acquire()
-        if self._grant is None or datetime.now() > self._grant.expires_at:
+        if self._grant is None or datetime.now(timezone.utc) > self._grant.expires_at:
             self._grant = await self.account.grant(client, self.scopes)
         self._refreshed.release()
         request.headers['Authorization'] = \
