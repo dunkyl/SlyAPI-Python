@@ -33,6 +33,28 @@ A common alternative is to store this secret in an environment variable and load
 Do not paste it into your source code if you use any kind of version control or intend on sharing your code, built or not.
 ```
 
+### With a Google "Service Account"
+
+If you are using a Google API to perform some automated task, you should use this. Most of the Google Cloud services support both this, and an OAuth2 grant on behalf of a normal Google account. This method can be much simpler.
+
+There are two ways to use a Service Account. The Google-recommended method, by using "workload federation", only works when you are running your code in a handful of specific managed cloud environments, such as AWS or Azure. This library offers no support for this yet. 
+
+To acquire a basic key for your Service Account, create a Google Cloud Project. Under "IAM & Admin", you can find a Service Accounts section. You may need to grant it permission to use a particular service scope. You can download a JSON key for the account after it is created. Pass the path for this key to the `OAuth2ServiceAccount` constructor along with the scopes for whatever service you are using.
+
+For example, to use a service account with Google Sheets:
+
+```py
+import SlyAPI, SlySheets
+# ...
+auth = SlyAPI.OAuth2ServiceAccount(
+            "service_account.json",
+            ["https://www.googleapis.com/auth/spreadsheets"])
+sheet = await SlySheets.Spreadsheet(auth, MY_SHEET_ID)
+# ...
+```
+
+Like with API keys, the JSON credentials contain secrets that should never be shared.
+
 ### With OAuth 1 or 2
 
 There are two items required to sign requests with OAuth1. Client credentials, or app credentials, are provided by the 3rd party service/website to developers. Usually there is additional set up for getting approved or agreeing to terms of use. In some cases, you may need to submit a live URL with a privacy policy detailing how you will use the credentials.

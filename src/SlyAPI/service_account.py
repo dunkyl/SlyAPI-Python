@@ -18,7 +18,7 @@ class ServiceGrant:
 
 @dataclass
 class ServiceAccount:
-    'Information to acquire grants'
+    'Used to acquire grants for Google Cloud service accounts'
     client_email: str
     client_id: str
     private_key: str
@@ -70,6 +70,7 @@ class ServiceAccount:
 
 @dataclass
 class OAuth2ServiceAccount(Auth):
+    'Google Cloud service account'
     account: ServiceAccount
     scopes: list[str]
     _grant: ServiceGrant | None = None
