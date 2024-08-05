@@ -1,6 +1,6 @@
 [project]
 name = "SlyAPI"
-version = "0.4.5"
+version = "0.5.0"
 description = "No-boilerplate, async and typed web api access with oauth1/2."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,8 @@ dependencies = [
     'aiodns >= 3.0.0',
     'charset-normalizer >= 3.0.1',
     'pick',
-    'termcolor'
+    'termcolor',
+    'PyJWT >= 2.9'
 ]
 [project.optional-dependencies]
 dev = [

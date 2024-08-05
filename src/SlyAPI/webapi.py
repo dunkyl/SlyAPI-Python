@@ -3,10 +3,13 @@ Implementation for following classes:
 
 - WebAPI
 '''
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict
 from enum import Enum
 import json
-from typing import Any, AsyncGenerator, cast, TypeVar, overload
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Sequence, cast, TypeVar, overload
+from typing_extensions import TypeIs
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 from aiohttp import ClientSession as Client
 from .asyncy import AsyncLazy, unmanage_async_context
@@ -14,6 +17,9 @@ from .auth import Auth
 from .web import Request, Method, JsonMap, ParamsDict, ApiError
 
 T = TypeVar('T')
+
+def is_dataclass_instance(obj: object) -> 'TypeIs[DataclassInstance]':
+    return hasattr(type(obj), "__dataclass_fields__")
 
 class WebAPI:
     'Base class for web APIs'
@@ -63,7 +69,8 @@ class WebAPI:
                     else:
                         converted[k] = self._parameter_list_delimiter.join(map(str, v))
                 case [Enum(), *_]: # list of enums
-                    values = [e.value for e in v if e.value is not None]
+                    enums = cast(Sequence[Enum], v)
+                    values = [e.value for e in enums if e.value is not None]
                     if len(values) > 0:
                         converted[k] = self._parameter_list_delimiter.join(values)
                 case [_, *_]: # non-empty list
@@ -134,7 +141,7 @@ class WebAPI:
     async def _request_context(self, method: Method, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None):
         if data and hasattr(data, 'to_json'):
             data = data.json()
-        elif data and is_dataclass(data):
+        elif data and is_dataclass_instance(data):
             data = asdict(data)
         req = await self.auth.sign(self._client,
             Request( method, self.get_full_url(path), 
@@ -158,7 +165,7 @@ class WebAPI:
                 if hasattr(returns, 'from_json'):
                     return getattr(returns, 'from_json')(obj)
                 else:
-                    return returns(obj)
+                    return returns(obj) # type: ignore
     
     @overload
     async def _get(self, returns: None, path: str, params: ParamsDict|None=None, data: Any = None, headers: dict[str, str]|None=None) -> None: ...
