@@ -1,7 +1,7 @@
 '''Useful classes and functions for asynchronous programming.'''
 import asyncio
 import functools
-from typing import Coroutine, ParamSpec, TypeVar, Callable, Generator, Generic, AsyncGenerator, Any
+from typing import Generic, ParamSpec, TypeAlias, TypeVar, Callable, Generator, AsyncGenerator, Any
 from contextlib import AbstractAsyncContextManager
 
 T = TypeVar('T')
@@ -36,7 +36,7 @@ def unmanage_async_context(context: AbstractAsyncContextManager[T]) -> tuple[asy
         assert fut_T is not None
         return fut_T
     return (
-        asyncio.create_task(aenter_wait()), # type: ignore
+        asyncio.create_task(aenter_wait()),
         close_context )
 
 class AsyncLazy(Generic[T]):
@@ -59,8 +59,9 @@ class AsyncLazy(Generic[T]):
         '''Yield the aggregate results of the generator as a list.'''
         return self._items().__await__()
 
-    def map(self, f: Callable[[T], U]) -> 'AsyncTrans[U]':
-        return AsyncTrans(self, f)
+    def map(self, f: Callable[[T], U]) -> 'AsyncLazy[U]':
+        '''Apply a function to each item that is yielded.'''
+        return AsyncLazy(f(x) async for x in self)
 
     @classmethod
     def wrap(cls, fn: Callable[T_Params, AsyncGenerator[T, None]]):
@@ -69,27 +70,5 @@ class AsyncLazy(Generic[T]):
         def wrapped(*args: T_Params.args, **kwargs: T_Params.kwargs) -> AsyncLazy[T]:
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
-
-
-class AsyncTrans(Generic[U]):
-    '''
-    Transforms the results of the AsyncLazy generator using the provided mapping function.
-    Awaiting instances will return a list of the transformed results.
-    Can be used as an async iterator.
-    '''
-    gen: AsyncLazy[Any]
-    mapping: Callable[[Any], U]
-
-    def __init__(self, gen: AsyncLazy[T], mapping: Callable[[T], U]):
-        self.gen = gen
-        self.mapping = mapping
-
-    def __aiter__(self):
-        return (self.mapping(t) async for t in self.gen)
-
-    def __await__(self) -> Generator[Any, None, list[U]]:
-        '''Yield the aggregate results of the transformed generator as a list.'''
-        return self._items().__await__()
-
-    async def _items(self) -> list[U]:
-        return [u async for u in self]
+    
+AsyncTrans: TypeAlias = AsyncLazy

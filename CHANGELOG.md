@@ -9,6 +9,10 @@
 ### Added
 - `OAuth2ServiceAccount` authentication method
 
+---
+
+## [0.5.0] - 2023-07-30
+
 ### Changes/Improvements
 - `WebAPI` no longer needs to be constructed after an event loop is running.
 - `unmanage_async_context_sync` renamed to `unmanage_async_context`

@@ -1,6 +1,11 @@
+import os
 from datetime import datetime, timedelta
 from dataclasses import asdict
+
+from SlyAPI.web import JsonMap
 from SlyAPI import *
+
+test_dir = os.path.dirname(__file__)
 
 def test_oauth1_serialize():
 
@@ -19,7 +24,8 @@ def test_oauth1_serialize():
         'some_service_add_thing': 'example_thing'
     })
 
-    user3 = OAuth1User.from_json_file("test/ex_oauth1_user.json")
+    
+    user3 = OAuth1User.from_json_file(F"{test_dir}/ex_oauth1_user.json")
 
     assert user1 == user2 == user3
 
@@ -34,7 +40,7 @@ def test_oauth1_serialize():
 
     err_not_found = None
     try:
-        _err_user_not_found = OAuth1User.from_json_file("test/not_exists.json")
+        _err_user_not_found = OAuth1User.from_json_file(F"{test_dir}/not_exists.json")
     except Exception as e:
         err_not_found = e
 
@@ -51,13 +57,13 @@ def test_oauth1_serialize():
 
     app1 = OAuth1App.from_json_obj(obj)
 
-    app2 = OAuth1App.from_json_file("test/ex_oauth1.json")
+    app2 = OAuth1App.from_json_file(F"{test_dir}/ex_oauth1.json")
 
     assert app1 == app2
 
     err_not_found = None
     try:
-        _err_user_not_found = OAuth1App.from_json_file("test/not_exists.json")
+        _err_user_not_found = OAuth1App.from_json_file(F"{test_dir}/not_exists.json")
     except FileNotFoundError as e:
         err_not_found = e
 
@@ -106,7 +112,7 @@ def test_oauth2_serialize():
     assert err_invalid is not None
     assert isinstance(err_invalid, ValueError)
 
-    obj = {
+    obj: JsonMap = {
         'id': 'example_client_id',
         'secret': 'example_secret',
         'token_uri': 'https://example.com/request_token',
@@ -115,7 +121,7 @@ def test_oauth2_serialize():
 
     app1 = OAuth2App.from_json_obj(obj)
 
-    app2 = OAuth2App.from_json_file("test/ex_oauth2.json")
+    app2 = OAuth2App.from_json_file(F"{test_dir}/ex_oauth2.json")
 
     assert app1 == app2
 
