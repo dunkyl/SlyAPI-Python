@@ -53,6 +53,7 @@ Example library usage:
 
 ```py
 from SlyAPI import *
+from SlyAPI.web import ParamsDict
 
 class Mode(Enum):
     XML  = 'xml'
@@ -83,7 +84,7 @@ class OpenWeather(WebAPI):
         '''Get the current weather of a city.
            Location format: `City,State,Country`
            where State and Country are ISO3166 codes. '''
-        params = {
+        params: ParamsDict = {
             'q': location,
             'lang': lang,
             'units': units,

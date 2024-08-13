@@ -2,6 +2,7 @@ from enum import Enum
 import sys, os
 from typing import Any
 
+from SlyAPI.web import ParamsDict
 import pytest
 
 from SlyAPI import *
@@ -37,7 +38,7 @@ class OpenWeather(WebAPI):
         '''Get the current weather of a city.
            Location format: `City,State,Country`
            where State and Country are ISO3166 codes. '''
-        params = {
+        params: ParamsDict = {
             'q': location,
             'lang': lang,
             'units': units,

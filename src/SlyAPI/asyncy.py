@@ -71,4 +71,4 @@ class AsyncLazy(Generic[T]):
             return AsyncLazy(fn(*args, **kwargs))
         return wrapped
     
-AsyncTrans: TypeAlias = AsyncLazy
+AsyncTrans: TypeAlias = AsyncLazy[T]

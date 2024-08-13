@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import asdict
 
 from SlyAPI.web import JsonMap
@@ -71,7 +71,7 @@ def test_oauth1_serialize():
 
 def test_oauth2_serialize():
 
-    expiry = datetime.utcnow() + timedelta(seconds=3600)
+    expiry = datetime.now(timezone.utc) + timedelta(seconds=3600)
 
     obj = {
         'token': 'example_token',

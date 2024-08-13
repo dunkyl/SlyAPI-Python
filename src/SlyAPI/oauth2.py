@@ -4,7 +4,7 @@ https://datatracker.ietf.org/doc/html/rfc7636
 '''
 import asyncio
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
@@ -15,7 +15,7 @@ from typing import Any, Callable, ParamSpec, TypeVar, cast
 from warnings import warn
 
 from .auth import Auth
-from .web import ApiError, JsonMap, Request, TomlMap, serve_once
+from .web import ApiError, JsonMap, ParamsDict, Request, TomlMap, serve_once
 
 
 import aiohttp
@@ -73,7 +73,7 @@ class OAuth2User:
                 **others
             }: # OAuth 2 grant response
                 expires_in = int(expires_in)
-                expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
                 refresh_token = others.get('refresh_token', '')
                 scopes = cast(str, others.get('scope', '')).split(' ')
                 if refresh_token is None:
@@ -180,7 +180,7 @@ class OAuth2App:
                 'token_type': token_type,
                 **_others
             }: # OAuth 2 refresh response
-                expiry = datetime.utcnow() + timedelta(seconds=int(expires_str))
+                expiry = datetime.now(timezone.utc) + timedelta(seconds=int(expires_str))
                 new_user = copy(user)
                 new_user.token = token
                 new_user.expires_at = expiry
@@ -190,7 +190,7 @@ class OAuth2App:
         return new_user
     
     async def exchange_code(self, code: str, verifier: str, scopes: list[str], redirect_uri: str, client: Client|None=None) -> OAuth2User:
-        grant_data = {
+        grant_data: ParamsDict = {
             'grant_type': 'authorization_code',
             'code': code,
             'client_id': self.id,
@@ -238,7 +238,7 @@ class OAuth2(Auth):
     
     async def sign(self, client: Client, request: Request) -> Request:
         await self._refreshed.acquire()
-        if datetime.utcnow() > self.user.expires_at:
+        if datetime.now(timezone.utc) > self.user.expires_at:
             # TODO: log refresh
             self.user = await self.app.refresh(client, self.user)
         self._refreshed.release()

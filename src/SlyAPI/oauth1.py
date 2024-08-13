@@ -57,7 +57,7 @@ def _hmac_sign(request: Request, signing_params: dict[str, Any], appSecret: str,
 
 def _common_oauth_params(appKey: str):
     nonce = base64.b64encode(secrets.token_bytes(32)).strip(b'+/=').decode('ascii')
-    timestamp = str(int(datetime.utcnow().timestamp()))
+    timestamp = str(int(datetime.now().timestamp()))
     # nonce = base64.b64encode(b'a'*32).strip(b'+/=').decode('ascii')
     # timestamp = '1'
     return {
